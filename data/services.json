@@ -1,0 +1,24 @@
+[
+  {
+    "id": "NE2",
+    "repeatWeeks": 14,
+    "defaultBerths": {
+      "rotterdam": 1,
+      "hamburg": 1,
+      "antwerp": 1,
+      "london": 1,
+      "tangier": 1
+    }
+  },
+  {
+    "id": "NE4",
+    "repeatWeeks": 14,
+    "defaultBerths": {
+      "london": 3,
+      "bremerhaven": 1,
+      "hamburg": 2,
+      "rotterdam": 2,
+      "algeciras": 1
+    }
+  }
+]

@@ -1,0 +1,71 @@
+[
+  {
+    "id": "rotterdam",
+    "name": "Rotterdam MV2",
+    "berths": 2,
+    "distancesNm": {
+      "hamburg": 100,
+      "antwerp": 100,
+      "london": 100,
+      "tangier": 100,
+      "bremerhaven": 100,
+      "algeciras": 100
+    }
+  },
+  {
+    "id": "hamburg",
+    "name": "Hamburg Eurogate",
+    "berths": 6,
+    "distancesNm": {
+      "antwerp": 100,
+      "london": 100,
+      "tangier": 100,
+      "bremerhaven": 100,
+      "algeciras": 100
+    }
+  },
+  {
+    "id": "antwerp",
+    "name": "Antwerpen",
+    "berths": 1,
+    "distancesNm": {
+      "london": 100,
+      "tangier": 100,
+      "bremerhaven": 100,
+      "algeciras": 100
+    }
+  },
+  {
+    "id": "london",
+    "name": "London",
+    "berths": 4,
+    "distancesNm": {
+      "tangier": 100,
+      "bremerhaven": 100,
+      "algeciras": 100
+    }
+  },
+  {
+    "id": "tangier",
+    "name": "Tangier TC3",
+    "berths": 2,
+    "distancesNm": {
+      "bremerhaven": 100,
+      "algeciras": 100
+    }
+  },
+  {
+    "id": "bremerhaven",
+    "name": "Bremerhaven",
+    "berths": 2,
+    "distancesNm": {
+      "algeciras": 100
+    }
+  },
+  {
+    "id": "algeciras",
+    "name": "Algeciras",
+    "berths": 2,
+    "distancesNm": {}
+  }
+]

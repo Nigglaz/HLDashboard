@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Harborline | Liegeplatzplanung</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand"><span class="brand-mark"><i data-lucide="anchor"></i></span><div><strong>Harborline</strong><span>FLEET OPERATIONS</span></div></div>
+    <nav aria-label="Hauptnavigation"><button id="tab-planning" class="nav-tab nav-active" type="button">Liegeplatzplanung</button><button id="tab-proformas" class="nav-tab" type="button">Proformas</button></nav>
+    <button id="export" class="button quiet" title="Aktuellen Entwurf als JSON exportieren"><i data-lucide="download"></i> JSON exportieren</button>
+  </header>
+
+  <main>
+    <section class="toolbar" aria-label="Planungswerkzeuge">
+      <label class="ship-select"><span>Dienst</span><select id="service-select" aria-label="Dienst ausw&auml;hlen"></select></label>
+      <label id="voyage-control" class="rotation-select">Reise ab <input id="voyage" type="date" value="2027-01-16" aria-label="Reisedatum"></label>
+      <span id="service-info" class="service-tag"></span>
+      <button id="reset-voyage" class="button quiet" type="button" hidden>Auf Proforma zur&uuml;cksetzen</button>
+      <div class="toolbar-separator"></div>
+      <button id="focus" class="button quiet" title="Zum ausgew&auml;hlten Schiff springen"><i data-lucide="locate-fixed"></i> Fokussieren</button>
+      <label class="zoom-label">Zoom <input id="zoom" type="range" min="16" max="1200" value="64" aria-label="Zeitmassstab"></label>
+      <label class="cascade"><input id="cascade" type="checkbox" checked> Folgeaufenthalte mitnehmen</label>
+      <label class="cascade"><input id="compare-proforma" type="checkbox"> Proforma vergleichen</label>
+      <div class="toolbar-spacer"></div>
+      <button id="undo" class="button icon" title="R&uuml;ckg&auml;ngig" aria-label="R&uuml;ckg&auml;ngig"><i data-lucide="undo-2"></i><span class="icon-fallback">&#8630;</span></button>
+      <button id="redo" class="button icon" title="Wiederholen" aria-label="Wiederholen"><i data-lucide="redo-2"></i><span class="icon-fallback">&#8631;</span></button>
+      <button id="discard" class="button quiet">Verwerfen</button>
+      <button id="save" class="button primary"><i data-lucide="check"></i><span id="save-label">Plan f&uuml;r dieses Schiff &uuml;bernehmen</span><span id="draft-count" class="count">0</span></button>
+    </section>
+
+    <section id="proforma-toolbar" class="proforma-toolbar" aria-label="Proforma ansehen" hidden>
+      <label>Version<select id="proforma-select" aria-label="Proforma-Version"></select></label>
+      <label>Name<input id="proforma-name" readonly></label>
+      <label>G&uuml;ltig ab<input id="proforma-start" type="date" readonly></label>
+      <label>Zyklus (Wochen)<input id="proforma-weeks" type="number" readonly></label>
+    </section>
+
+    <section class="view-toolbar" aria-label="Ansichten">
+      <label>Ansicht <select id="view-select" aria-label="Gespeicherte Ansicht"><option value="">Individuell</option></select></label>
+      <details id="view-options"><summary>Liegepl&auml;tze &amp; Ansicht</summary><div class="view-popover"><div class="view-actions"><button id="collapse-all" class="button" type="button">Alle einklappen</button><button id="expand-all" class="button" type="button">Alle ausklappen</button></div><div id="berth-options"></div><label>Ansichtsname<input id="view-name" maxlength="80" placeholder="Meine Ansicht"></label><div class="view-actions"><button id="save-view" class="button primary" type="button">Ansicht speichern</button><button id="reset-view" class="button" type="button">Alle einblenden</button></div></div></details>
+      <label class="start-label">Ab <input id="timeline-start" type="date" value="2027-01-14" aria-label="Beginn der Zeitachse"></label>
+      <label>Bis <input id="timeline-end" type="date" value="2027-07-13" aria-label="Ende der Zeitachse"></label>
+    </section>
+
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="vessel-photo"><img src="https://images.unsplash.com/photo-1494412519320-aa613dfb7738?w=640&auto=format&fit=crop&q=80" alt="Containerterminal am Hafen"><span>FLOTTEN&Uuml;BERSICHT</span></div>
+        <div class="sidebar-heading"><span>Schiffe</span><span id="fleet-count" class="muted"></span></div>
+        <div id="fleet" class="fleet"></div>
+        <div class="route-section"><div class="sidebar-heading"><span>Hafenfolge</span><span id="route-count" class="muted">5 H&auml;fen</span></div><div id="route"></div></div>
+        <div class="conflict-section"><div class="sidebar-heading"><span>Planpr&uuml;fung</span><span id="conflict-count" class="check-badge">OK</span></div><div id="conflicts" aria-live="polite"></div></div>
+      </aside>
+
+      <section class="schedule" aria-label="Hafen-Zeitleiste">
+        <div class="schedule-top"><div><strong>Liegeplatzbelegung</strong><span id="visible-range" class="muted"></span></div><div class="legend"><span><b class="swatch selected"></b>Ausgew&auml;hlt</span><span><b class="swatch ne2"></b>NE2</span><span><b class="swatch ne4"></b>NE4</span><span><b class="swatch draft"></b>Entwurf</span><span><b class="swatch baseline"></b>Bisher</span></div></div>
+        <div id="chart-scroll" class="chart-scroll"><div id="chart" class="chart"></div></div>
+        <footer class="chart-footer"><span><span class="live-dot"></span> <span id="status">Bereit</span></span><span>Planzeit UTC &middot; 1-h-Raster <span class="desktop-only">&middot; <span id="stop-count">30</span> Aufenthalte</span></span></footer>
+      </section>
+    </div>
+  </main>
+
+  <section id="inspector" class="inspector" aria-label="Aufenthalt bearbeiten" hidden>
+    <header id="inspector-handle"><span><i data-lucide="grip"></i> Aufenthalt</span><button id="close-inspector" class="button icon" title="Schlie&szlig;en" aria-label="Detailfenster schlie&szlig;en"><i data-lucide="x"></i><span class="icon-fallback">&#215;</span></button></header>
+    <form id="stop-form">
+      <p class="eyebrow" id="detail-ship"></p><h2 id="detail-port"></h2>
+      <label>Liegeplatz<select id="detail-berth"></select></label>
+      <label>Ankunft (UTC)<input id="detail-arrival" type="datetime-local" required step="3600"></label>
+      <label>Abfahrt (UTC)<input id="detail-departure" type="datetime-local" required step="3600"></label>
+      <label id="transit-label">Transit vom vorherigen Hafen (Stunden)<input id="detail-transit" type="number" min="0" step="0.25" required></label>
+      <label class="checkbox-label"><input id="recalculate" type="checkbox"> Ankunft aus Transit neu berechnen</label>
+      <p id="detail-error" class="form-error" role="alert"></p>
+      <button class="button primary" type="submit"><i data-lucide="check"></i> Als Entwurf anwenden</button>
+    </form>
+  </section>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

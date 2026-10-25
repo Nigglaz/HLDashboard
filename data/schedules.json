@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "revision": 9,
+  "shipFiles": {
+    "busan": "ships/busan.json",
+    "berlin": "ships/berlin.json",
+    "gdansk": "ships/gdansk.json",
+    "rotterdam": "ships/rotterdam.json",
+    "hamburg": "ships/hamburg.json",
+    "genova": "ships/genova.json",
+    "mathilde": "ships/mathilde.json"
+  }
+}

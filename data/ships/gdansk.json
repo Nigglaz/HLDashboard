@@ -1,0 +1,57 @@
+{
+  "id": "gdansk",
+  "name": "Gdansk Express",
+  "serviceId": "NE2",
+  "proformas": [
+    {
+      "id": "initial",
+      "name": "Proforma 2027",
+      "validFrom": "2027-01-01",
+      "repeatWeeks": 14,
+      "stops": [
+        {
+          "arrival": "2027-01-30T11:00",
+          "berth": 1,
+          "departure": "2027-02-01T00:00",
+          "id": "gdansk-rotterdam",
+          "portId": "rotterdam",
+          "transitMinutes": 0
+        },
+        {
+          "arrival": "2027-02-02T13:00",
+          "berth": 1,
+          "departure": "2027-02-04T10:00",
+          "id": "gdansk-hamburg",
+          "portId": "hamburg",
+          "transitMinutes": 2220
+        },
+        {
+          "arrival": "2027-02-06T06:00",
+          "berth": 1,
+          "departure": "2027-02-08T23:00",
+          "id": "gdansk-antwerp",
+          "portId": "antwerp",
+          "transitMinutes": 2640
+        },
+        {
+          "arrival": "2027-02-09T12:00",
+          "berth": 1,
+          "departure": "2027-02-11T23:00",
+          "id": "gdansk-london",
+          "portId": "london",
+          "transitMinutes": 780
+        },
+        {
+          "arrival": "2027-02-16T03:00",
+          "berth": 1,
+          "departure": "2027-02-17T01:00",
+          "id": "gdansk-tangier",
+          "portId": "tangier",
+          "transitMinutes": 6000
+        }
+      ]
+    }
+  ],
+  "voyages": {},
+  "maxSpeedKnots": 20
+}

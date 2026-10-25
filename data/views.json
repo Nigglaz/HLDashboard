@@ -1,0 +1,16 @@
+{
+  "NE2 kompakt": {
+    "collapsed": [
+      "antwerp"
+    ],
+    "hiddenBerths": [
+      "hamburg:6"
+    ],
+    "dayWidth": 81,
+    "cycle": 0,
+    "start": "2027-01-14T00:00",
+    "selected": "busan",
+    "scrollLeft": 439.3333435058594,
+    "scrollTop": 0
+  }
+}

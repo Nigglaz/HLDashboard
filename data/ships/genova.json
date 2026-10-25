@@ -1,0 +1,57 @@
+{
+  "id": "genova",
+  "name": "Genova Express",
+  "serviceId": "NE2",
+  "proformas": [
+    {
+      "id": "initial",
+      "name": "Proforma 2027",
+      "validFrom": "2027-01-01",
+      "repeatWeeks": 14,
+      "stops": [
+        {
+          "arrival": "2027-02-20T11:00",
+          "berth": 1,
+          "departure": "2027-02-22T00:00",
+          "id": "genova-rotterdam",
+          "portId": "rotterdam",
+          "transitMinutes": 0
+        },
+        {
+          "arrival": "2027-02-23T13:00",
+          "berth": 1,
+          "departure": "2027-02-25T10:00",
+          "id": "genova-hamburg",
+          "portId": "hamburg",
+          "transitMinutes": 2220
+        },
+        {
+          "arrival": "2027-02-27T06:00",
+          "berth": 1,
+          "departure": "2027-03-01T23:00",
+          "id": "genova-antwerp",
+          "portId": "antwerp",
+          "transitMinutes": 2640
+        },
+        {
+          "arrival": "2027-03-02T12:00",
+          "berth": 1,
+          "departure": "2027-03-04T23:00",
+          "id": "genova-london",
+          "portId": "london",
+          "transitMinutes": 780
+        },
+        {
+          "arrival": "2027-03-09T03:00",
+          "berth": 1,
+          "departure": "2027-03-10T01:00",
+          "id": "genova-tangier",
+          "portId": "tangier",
+          "transitMinutes": 6000
+        }
+      ]
+    }
+  ],
+  "voyages": {},
+  "maxSpeedKnots": 20
+}

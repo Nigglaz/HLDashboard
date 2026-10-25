@@ -1,0 +1,56 @@
+{
+  "id": "berlin",
+  "name": "Berlin Express",
+  "serviceId": "NE2",
+  "proformas": [
+    {
+      "id": "initial",
+      "name": "Proforma 2027",
+      "validFrom": "2027-01-01",
+      "repeatWeeks": 14,
+      "stops": [
+        {
+          "arrival": "2027-01-23T11:00",
+          "berth": 1,
+          "departure": "2027-01-25T00:00",
+          "id": "berlin-rotterdam",
+          "portId": "rotterdam",
+          "transitMinutes": 0
+        },
+        {
+          "arrival": "2027-01-26T13:00",
+          "berth": 1,
+          "departure": "2027-01-28T10:00",
+          "id": "berlin-hamburg",
+          "portId": "hamburg",
+          "transitMinutes": 2220
+        },
+        {
+          "arrival": "2027-01-30T06:00",
+          "berth": 1,
+          "departure": "2027-02-01T23:00",
+          "id": "berlin-antwerp",
+          "portId": "antwerp",
+          "transitMinutes": 2640
+        },
+        {
+          "arrival": "2027-02-02T12:00",
+          "berth": 1,
+          "departure": "2027-02-04T23:00",
+          "id": "berlin-london",
+          "portId": "london",
+          "transitMinutes": 780
+        },
+        {
+          "arrival": "2027-02-09T03:00",
+          "berth": 1,
+          "departure": "2027-02-10T01:00",
+          "id": "berlin-tangier",
+          "portId": "tangier",
+          "transitMinutes": 6000
+        }
+      ]
+    }
+  ],
+  "voyages": {}
+}

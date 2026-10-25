@@ -1,0 +1,102 @@
+{
+  "id": "mathilde",
+  "name": "Mathilde Maersk",
+  "serviceId": "NE4",
+  "proformas": [
+    {
+      "id": "initial",
+      "name": "Proforma 2027",
+      "validFrom": "2027-01-01",
+      "repeatWeeks": 14,
+      "stops": [
+        {
+          "arrival": "2027-01-16T14:00",
+          "berth": 3,
+          "departure": "2027-01-18T04:00",
+          "id": "mathilde-london",
+          "portId": "london",
+          "transitMinutes": 0
+        },
+        {
+          "arrival": "2027-01-20T06:00",
+          "berth": 1,
+          "departure": "2027-01-21T22:00",
+          "id": "mathilde-bremerhaven",
+          "portId": "bremerhaven",
+          "transitMinutes": 3000
+        },
+        {
+          "arrival": "2027-01-22T15:00",
+          "berth": 2,
+          "departure": "2027-01-24T18:00",
+          "id": "mathilde-hamburg",
+          "portId": "hamburg",
+          "transitMinutes": 1020
+        },
+        {
+          "arrival": "2027-01-26T11:00",
+          "berth": 2,
+          "departure": "2027-01-27T12:00",
+          "id": "mathilde-rotterdam",
+          "portId": "rotterdam",
+          "transitMinutes": 2460
+        },
+        {
+          "arrival": "2027-02-01T20:00",
+          "berth": 1,
+          "departure": "2027-02-02T14:00",
+          "id": "mathilde-algeciras",
+          "portId": "algeciras",
+          "transitMinutes": 7680
+        }
+      ]
+    }
+  ],
+  "voyages": {
+    "2027-01-16": {
+      "proformaId": "initial",
+      "stops": [
+        {
+          "arrival": "2027-01-16T14:00",
+          "berth": 3,
+          "departure": "2027-01-18T04:00",
+          "id": "mathilde-london",
+          "portId": "london",
+          "transitMinutes": 0
+        },
+        {
+          "arrival": "2027-01-20T05:00",
+          "berth": 1,
+          "departure": "2027-01-21T21:00",
+          "id": "mathilde-bremerhaven",
+          "portId": "bremerhaven",
+          "transitMinutes": 2940
+        },
+        {
+          "arrival": "2027-01-22T14:00",
+          "berth": 2,
+          "departure": "2027-01-24T17:00",
+          "id": "mathilde-hamburg",
+          "portId": "hamburg",
+          "transitMinutes": 1020
+        },
+        {
+          "arrival": "2027-01-25T13:00",
+          "berth": 2,
+          "departure": "2027-02-05T14:00",
+          "id": "mathilde-rotterdam",
+          "portId": "rotterdam",
+          "transitMinutes": 1200
+        },
+        {
+          "arrival": "2027-02-10T22:00",
+          "berth": 1,
+          "departure": "2027-02-11T16:00",
+          "id": "mathilde-algeciras",
+          "portId": "algeciras",
+          "transitMinutes": 7680
+        }
+      ]
+    }
+  }
+}
