@@ -14,8 +14,10 @@ def parse(value):
 
 def minimum_transit_hours(ship, origin, destination, ports=None):
     port_map = {port["id"]: port for port in ports or []}
-    distance = port_map.get(origin, {}).get("distancesNm", {}).get(destination, port_map.get(destination, {}).get("distancesNm", {}).get(origin, 100))
-    speed = ship.get("maxSpeedKnots", 20)
+    distance = 0 if origin == destination else port_map.get(origin, {}).get("distancesNm", {}).get(destination, port_map.get(destination, {}).get("distancesNm", {}).get(origin))
+    if distance is None:
+        raise ValueError(f"Entfernung zwischen {origin} und {destination} fehlt in ports.json.")
+    speed = ship.get("maxSpeedKnots")
     if type(distance) not in (int, float) or not isfinite(distance) or distance < 0:
         raise ValueError("Die Entfernung muss eine endliche, nichtnegative Zahl in Seemeilen sein.")
     if type(speed) not in (int, float) or not isfinite(speed) or speed <= 0:
@@ -44,7 +46,7 @@ def change_rotation(ship, stops, ports):
     return reordered
 
 
-def insert_adhoc_stop(stops, after_stop_id, port_id, ports, berth=1):
+def insert_adhoc_stop(stops, after_stop_id, port_id, ports, berth=1, *, before_stop_id=None):
     port_map = {port["id"]: port for port in ports}
     if port_id not in port_map:
         raise ValueError("Unbekannter Hafen.")
@@ -52,6 +54,26 @@ def insert_adhoc_stop(stops, after_stop_id, port_id, ports, berth=1):
         raise ValueError("Ung\u00fcltiger Liegeplatz.")
     if not isinstance(stops, list) or not stops:
         raise ValueError("Keine Reise vorhanden.")
+    if before_stop_id is not None:
+        if after_stop_id is not None:
+            raise ValueError("Nur eine Einf\u00fcgeposition angeben.")
+        before_index = next((index for index, stop in enumerate(stops) if stop["id"] == before_stop_id), -1)
+        if before_index < 0:
+            raise ValueError("Der folgende Aufenthalt wurde nicht gefunden.")
+        if before_index == 0:
+            following = stops[0]
+            duration = parse(following["departure"]) - parse(following["arrival"])
+            if duration <= timedelta(0):
+                raise ValueError("Die folgende Liegezeit muss positiv sein.")
+            departure = parse(following["arrival"])
+            arrival = departure - duration
+            result = deepcopy(stops)
+            result.insert(0, {"id": f"adhoc-{uuid4().hex}", "portId": port_id, "berth": berth,
+                              "arrival": arrival.isoformat(timespec="minutes"), "departure": departure.isoformat(timespec="minutes"),
+                              "transitMinutes": 0, "adhoc": True})
+            result[1]["transitMinutes"] = 0
+            return result
+        after_stop_id = stops[before_index - 1]["id"]
     index = next((index for index, stop in enumerate(stops) if stop["id"] == after_stop_id), -1)
     if index < 0 or index + 1 >= len(stops):
         raise ValueError("Der Hafen kann nur zwischen zwei vorhandenen Aufenthalten eingef\u00fcgt werden.")
@@ -205,26 +227,6 @@ def voyages_in_range(ship, start, end, services=None):
     return [voyage for _, voyage in sorted(result.items()) if min(parse(stop["arrival"]) for stop in voyage["stops"]) < parse(end) and max(parse(stop["departure"]) for stop in voyage["stops"]) >= parse(start)]
 
 
-def migrate_ship(ship):
-    if "proformas" in ship:
-        return deepcopy(ship)
-    pattern = deepcopy(ship.get("recurrenceStops", ship["stops"]))
-    for stops in [pattern, ship["stops"], *ship.get("voyageOverrides", {}).values()]:
-        if ship["id"] == "mathilde":
-            for stop in stops:
-                if stop["portId"] == "rotterdam" and stop["arrival"] == "2027-01-16T11:00":
-                    stop["arrival"] = "2027-01-26T11:00"
-                    stop["transitMinutes"] = 2460
-    version = {"id": "initial", "name": "Proforma 2027", "validFrom": "2027-01-01", "repeatWeeks": 14, "stops": pattern}
-    voyages = {}
-    if ship["stops"] != pattern:
-        voyages[pattern[0]["arrival"][:10]] = {"proformaId": "initial", "stops": deepcopy(ship["stops"])}
-    for cycle, stops in ship.get("voyageOverrides", {}).items():
-        key = (parse(pattern[0]["arrival"]) + timedelta(weeks=15 * int(cycle))).date().isoformat()
-        voyages[key] = {"proformaId": "initial", "stops": deepcopy(stops)}
-    return {"id": ship["id"], "name": ship["name"], "serviceId": ship["serviceId"], "proformas": [version], "voyages": voyages}
-
-
 def validate_ship(ship, original, ports, allow_rotation_conflicts=False, services=None):
     if any(ship.get(field) != original[field] for field in ("id", "name", "serviceId")):
         raise ValueError("Schiff und Dienst d\u00fcrfen nicht ver\u00e4ndert werden.")
@@ -272,6 +274,11 @@ def validate_ship(ship, original, ports, allow_rotation_conflicts=False, service
         if parse(key).date().isoformat() != key or (voyage["proformaId"] not in ids and not (not has_assignments and voyage["proformaId"] is None)):
             raise ValueError("Ung\u00fcltiger Reiseabschnitt.")
         validate_stations(voyage["stops"], port_map, require_order=not allow_rotation_conflicts)
+    routes = [voyage["stops"] for voyage in ship["voyages"].values()]
+    routes.extend(_proforma_for(ship, assignment, services)["stops"] for assignment in _assignments(ship))
+    for stops in routes:
+        for previous, stop in zip(stops, stops[1:]):
+            minimum_transit_hours(ship, previous["portId"], stop["portId"], ports)
 
 
 def validate_service_proforma(proforma, ports):

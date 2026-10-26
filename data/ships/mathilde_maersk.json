@@ -1,103 +1,15 @@
 {
   "id": "mathilde_maersk",
-  "vesselName": "MATHILDE MAERSK",
   "maxSpeedKnots": 20,
   "name": "Mathilde Maersk",
-  "serviceId": "NE4",
-  "voyages": {
-    "2027-01-16": {
-      "proformaId": "ne4-2026",
-      "stops": [
-        {
-          "id": "mathilde-london",
-          "portId": "london",
-          "berth": 3,
-          "arrival": "2027-01-16T14:00",
-          "departure": "2027-01-18T04:00",
-          "transitMinutes": 0,
-          "source": {
-            "provider": "maersk",
-            "portName": "London Gateway",
-            "terminalName": "London Gateway Terminal",
-            "arrivalVoyage": "650W",
-            "departureVoyage": "703E"
-          }
-        },
-        {
-          "id": "mathilde-bremerhaven",
-          "portId": "bremerhaven",
-          "berth": 1,
-          "arrival": "2027-01-20T06:00",
-          "departure": "2027-01-21T22:00",
-          "transitMinutes": 3000,
-          "source": {
-            "provider": "maersk",
-            "portName": "Bremerhaven",
-            "terminalName": "NTB North Sea Terminal Bremerhaven",
-            "arrivalVoyage": "650W",
-            "departureVoyage": "703E"
-          }
-        },
-        {
-          "id": "mathilde-hamburg",
-          "portId": "hamburg",
-          "berth": 1,
-          "arrival": "2027-01-22T15:00",
-          "departure": "2027-01-24T18:00",
-          "transitMinutes": 1020,
-          "source": {
-            "provider": "maersk",
-            "portName": "Hamburg",
-            "terminalName": "Eurogate Container Terminal Hamburg",
-            "arrivalVoyage": "650W",
-            "departureVoyage": "703E"
-          }
-        },
-        {
-          "id": "adhoc-dddd25b12d144f40bd8e09ee79ea5d35",
-          "portId": "rotterdam",
-          "berth": 1,
-          "arrival": "2027-01-26T11:00",
-          "departure": "2027-01-27T12:00",
-          "transitMinutes": 2460,
-          "source": {
-            "provider": "maersk",
-            "portName": "Rotterdam",
-            "terminalName": "APM 2 Terminal Maasvlakte II",
-            "arrivalVoyage": "650W",
-            "departureVoyage": "703E"
-          }
-        },
-        {
-          "id": "mathilde-algeciras",
-          "portId": "algeciras",
-          "berth": 1,
-          "arrival": "2027-02-01T20:00",
-          "departure": "2027-02-02T14:00",
-          "transitMinutes": 7680,
-          "source": {
-            "provider": "maersk",
-            "portName": "Algeciras",
-            "terminalName": "Algeciras - ML Terminal",
-            "arrivalVoyage": "703E",
-            "departureVoyage": "703E"
-          }
-        }
-      ],
-      "import": {
-        "source": "maersk",
-        "vesselName": "MATHILDE MAERSK",
-        "fetchedAt": "2026-10-25T21:10:10+00:00",
-        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=2BM&fromDate=2027-01-01",
-        "timeBasis": "unconfirmed"
-      }
-    }
-  },
   "proformaAssignments": [
     {
+      "offsetWeeks": 0,
       "proformaId": "ne4-2026",
-      "validFrom": "2026-01-01",
-      "offsetWeeks": 0
+      "validFrom": "2026-01-01"
     }
-  ]
+  ],
+  "serviceId": "NE4",
+  "vesselName": "MATHILDE MAERSK",
+  "voyages": {}
 }

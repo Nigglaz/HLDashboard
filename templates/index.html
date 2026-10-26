@@ -3,18 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>PHOCA | Liegeplatzplanung</title>
   <link rel="icon" type="image/png" href="{{ url_for('phoca_logo') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="{{ url_for('static', filename='auth.js') }}" defer></script>
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
   <script src="{{ url_for('static', filename='master_data.js') }}" defer></script>
 </head>
-<body>
+<body data-user="{{ g.user.email }}">
   <header class="app-header">
     <div class="brand"><img class="brand-symbol" src="{{ url_for('phoca_logo') }}" alt=""><img class="brand-wordmark" src="{{ url_for('phoca_font') }}" alt="PHOCA - Position &amp; Harbor Overview Connection Array"></div>
     <nav aria-label="Hauptnavigation"><button id="tab-planning" class="nav-tab nav-active" type="button">Liegeplatzplanung</button><button id="tab-proformas" class="nav-tab" type="button">Proformas</button><button id="tab-import" class="nav-tab" type="button">Datenimport</button><button id="tab-fleet" class="nav-tab" type="button">Flotte</button><button id="tab-ports" class="nav-tab" type="button">H&auml;fen</button></nav>
     <button id="export" class="button quiet" title="Aktuellen Entwurf als JSON exportieren"><i data-lucide="download"></i> JSON exportieren</button>
+    <a class="button quiet" href="{{ url_for('profile') }}">Profil</a>
+    <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button quiet">Abmelden</button></form>
   </header>
 
   <main>
@@ -23,7 +27,7 @@
       <div class="master-layout"><aside id="master-list" class="master-list" aria-label="Stammdatenauswahl"></aside>
         <form id="master-form" class="master-form">
           <div class="master-fields"><label>Technische ID<input id="master-id" pattern="[a-z0-9][a-z0-9_-]{0,63}" maxlength="64"></label><label>Anzeigename<input id="master-name" required maxlength="160"></label>
-          <label data-master-kind="fleet">Eindeutiger Importname<input id="master-vessel" maxlength="120"></label><label data-master-kind="fleet">Dienst<input id="master-service" list="master-services" maxlength="40"><datalist id="master-services"></datalist></label><label data-master-kind="fleet">Maximalgeschwindigkeit (kn)<input id="master-speed" type="number" min="0.1" step="0.1" value="20"></label><label data-master-kind="ports">Liegepl&auml;tze<input id="master-berths" type="number" min="1" max="200" step="1" value="2"></label></div>
+          <label data-master-kind="fleet">Eindeutiger Importname<input id="master-vessel" maxlength="120"></label><label data-master-kind="fleet">Dienst<input id="master-service" list="master-services" maxlength="40"><datalist id="master-services"></datalist></label><label data-master-kind="fleet">Maximalgeschwindigkeit (kn)<input id="master-speed" type="number" min="0.1" step="0.1"></label><label data-master-kind="ports">Liegepl&auml;tze<input id="master-berths" type="number" min="1" max="200" step="1"></label></div>
           <label data-master-kind="ports" class="master-aliases">Alternative Hafennamen (JSON: Datenquelle &rarr; Namensliste)<textarea id="master-aliases" rows="6" spellcheck="false">{}</textarea></label>
           <section data-master-kind="fleet" class="assignment-section"><h2>Proforma-Zuordnungen</h2><div id="ship-proforma-assignments"></div><button id="assignment-add" type="button" class="button">Zuordnung hinzuf&uuml;gen</button></section>
           <section data-master-kind="ports"><h2>Entfernungen (sm)</h2><div id="master-distances" class="master-distances"></div></section>
@@ -35,8 +39,8 @@
     <section id="import-panel" class="import-panel" hidden>
       <header class="import-heading"><div><p class="eyebrow">FAHRPLANDATEN</p><h1>Datenimport</h1></div><span id="import-state" class="service-tag">Keine Vorschau</span></header>
       <form id="import-form" class="import-form">
-        <div class="import-fields"><label>Umfang<select id="import-scope"><option value="ship">Einzelnes Schiff</option><option value="service">Ganzer Dienst</option></select></label><label>Datenquelle<select id="import-source"><option value="maersk">Maersk</option></select></label><label id="import-vessel-field">Eindeutiger Schiffsname<input id="import-vessel" value="MATHILDE MAERSK" required></label><label id="import-service-field" hidden>Dienst<select id="import-service"></select></label><label>Ab<input id="import-from" type="date" value="2027-01-01" required></label><label>Bis<input id="import-to" type="date" value="2027-03-01" required></label><label>Reise zuordnen ab<input id="import-voyage" type="date"></label></div>
-        <div class="import-filebar"><label>Datei<input id="import-file" type="file" accept=".json,.txt,text/plain,application/json"></label><button id="import-live" type="button" class="button primary">Maersk live abrufen</button><label><input id="import-browser" type="checkbox" checked> Browserfenster &ouml;ffnen</label><span id="import-origin" class="muted">Sichtbarer Browser: gepr&uuml;ft / Headless: nicht zuverl&auml;ssig</span></div>
+        <div class="import-fields"><label>Umfang<select id="import-scope"><option value="ship">Einzelnes Schiff</option><option value="service">Ganzer Dienst</option></select></label><label>Datenquelle<select id="import-source"><option value="maersk">Maersk</option><option value="hapag">Hapag-Lloyd</option></select></label><label id="import-vessel-field">Eindeutiger Schiffsname<input id="import-vessel" required></label><label id="import-service-field" hidden>Dienst<select id="import-service"></select></label><label>Ab<input id="import-from" type="date" required></label><label>Bis<input id="import-to" type="date" required></label><label>Reise zuordnen ab<input id="import-voyage" type="date"></label></div>
+        <div class="import-filebar"><label>Datei<input id="import-file" type="file" accept=".json,.txt,text/plain,application/json"></label><button id="import-live" type="button" class="button primary">Maersk live abrufen</button><span id="import-origin" class="muted"></span></div>
         <label class="import-text-label">Suchausgabe oder normalisiertes Import-JSON<textarea id="import-text" rows="8" spellcheck="false" required></textarea></label>
         <div class="import-actions"><button id="import-preview" type="submit" class="button primary">Vorschau berechnen</button><button id="import-clear" type="button" class="button">Verwerfen</button></div>
       </form>
@@ -73,7 +77,7 @@
       <label>Version<select id="proforma-select" aria-label="Proforma-Version"></select></label>
       <label>Name<input id="proforma-name" maxlength="80"></label>
       <label>G&uuml;ltig ab<input id="proforma-start" type="date"></label>
-      <label>Zyklus (Wochen)<input id="proforma-weeks" type="number" min="1" max="104" value="14"></label>
+      <label>Zyklus (Wochen)<input id="proforma-weeks" type="number" min="1" max="104"></label>
       <button id="proforma-cancel" class="button" type="button" disabled>Verwerfen</button>
       <button id="proforma-save" class="button primary" type="button" disabled>Proforma speichern</button>
     </section>
@@ -95,7 +99,7 @@
       </aside>
 
       <section class="schedule" aria-label="Hafen-Zeitleiste">
-        <div class="schedule-top"><div><strong>Liegeplatzbelegung</strong><span id="visible-range" class="muted"></span></div><div class="legend"><span><b class="swatch selected"></b>Ausgew&auml;hlt</span><span id="service-legend" class="service-legend"></span><span><b class="swatch draft"></b>Entwurf</span><span><b class="swatch baseline"></b>Bisher</span></div></div>
+        <div class="schedule-top"><div class="schedule-heading"><div><strong>Liegeplatzbelegung</strong><span id="visible-range" class="muted"></span></div><button id="today" class="button" type="button">Heute</button></div><div class="legend"><span><b class="swatch selected"></b>Ausgew&auml;hlt</span><span id="service-legend" class="service-legend"></span><span><b class="swatch draft"></b>Entwurf</span><span><b class="swatch baseline"></b>Bisher</span></div></div>
         <div id="chart-scroll" class="chart-scroll"><div id="chart" class="chart"></div></div>
         <footer class="chart-footer"><span><span class="live-dot"></span> <span id="status">Bereit</span></span><span>Planzeit UTC &middot; 1-h-Raster <span class="desktop-only">&middot; <span id="stop-count">30</span> Aufenthalte</span></span></footer>
       </section>
@@ -109,7 +113,7 @@
       <label>Liegeplatz<select id="detail-berth"></select></label>
       <label>Ankunft (UTC)<input id="detail-arrival" type="datetime-local" required step="60"></label>
       <label>Abfahrt (UTC)<input id="detail-departure" type="datetime-local" required step="60"></label>
-      <label id="transit-label">Transit vom vorherigen Hafen (Stunden)<input id="detail-transit" type="number" min="0" step="0.25" required></label>
+      <label id="transit-label">Transit vom vorherigen Hafen (Stunden)<input id="detail-transit" type="number" min="0" step="0.01" required></label>
       <label class="checkbox-label"><input id="recalculate" type="checkbox"> Ankunft aus Transit neu berechnen</label>
       <p id="detail-error" class="form-error" role="alert"></p>
       <button class="button primary" type="submit"><i data-lucide="check"></i> Als Entwurf anwenden</button>
@@ -119,7 +123,7 @@
     <form id="add-port-form">
       <h2 id="add-port-title">Hafen hinzuf&uuml;gen</h2>
       <p id="add-port-context" class="muted"></p>
-      <label>Nach Aufenthalt<select id="add-port-after" required></select></label>
+      <label>Vor Aufenthalt<select id="add-port-before" required></select></label>
       <label>Zus&auml;tzlicher Hafen<select id="add-port-choice" required></select></label>
       <p id="add-port-error" class="form-error" role="alert"></p>
       <div class="dialog-actions"><button id="cancel-add-port" type="button" class="button">Abbrechen</button><button id="confirm-add-port" type="submit" class="button primary">Als Entwurf einf&uuml;gen</button></div>

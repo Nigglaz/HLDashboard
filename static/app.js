@@ -2,12 +2,12 @@ const $ = (selector) => document.querySelector(selector);
 const DAY = 86400000;
 const HOUR = 3600000;
 const today = new Date();
-let START = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+let START = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) - 10 * DAY;
 const addMonths = (value, count) => {
   const date = new Date(value), last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + count + 1, 0)).getUTCDate();
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + count, Math.min(date.getUTCDate(), last));
 };
-let END = addMonths(START, 6);
+let END = addMonths(START + 10 * DAY, 6) + DAY;
 const calendarDays = () => Math.ceil((END - START) / DAY);
 function shiftCalendar(start) { const duration = END - START; START = start; END = START + duration; }
 const clone = (value) => structuredClone(value);
@@ -15,11 +15,13 @@ const instant = (value) => Date.parse(value + 'Z');
 const iso = (value) => new Date(value).toISOString().slice(0, 16);
 const dateLabel = (value, options = {}) => new Intl.DateTimeFormat('de-DE', {timeZone: 'UTC', ...options}).format(new Date(value));
 const shortDate = (value) => dateLabel(value, {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
+const roundedHours = (value) => Number(value.toFixed(2));
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[character]));
 let saved, working, selected = null, dayWidth = 64, history = [], future = [], editing = null, problems = [];
 let toastTimer, saving = false;
 let activeDate = null, selectedService = null, mode = 'planning', activeProforma = null;
 let proformaDraft = null, proformaDirty = false, proformaIsNew = false;
+let proformaTemplate = true;
 let collapsed = new Set(), hiddenBerths = new Set(), views = {}, activeDrag = false;
 let compareProforma = false;
 let refreshingData = false, dataChangeNotice = '', dataLoadNotice = '';
@@ -36,11 +38,36 @@ const proformasFor = (ship) => serviceFor(ship)?.proformas || ship.proformas || 
 const assignmentsFor = (ship) => ship.proformaAssignments || (ship.proformas || []).map((item) => ({proformaId: item.id, validFrom: item.validFrom, offsetWeeks: 0}));
 const serviceProforma = (ship, id) => proformasFor(ship).find((item) => item.id === id);
 const dayInstant = (value) => Date.parse(value.slice(0, 10) + 'T00:00Z');
+const localToday = () => {
+  const date = new Date();
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+};
+function jumpToToday() {
+  const day = localToday();
+  if (day < START || day >= END) {
+    notify('Das gewaehlte Zeitfenster enthaelt Heute nicht.', true);
+    return;
+  }
+  $('#chart-scroll').scrollTo({left: Math.max(0, (day - START) / DAY * dayWidth - 36), behavior: 'smooth'});
+}
+function proformaStops(ship) {
+  const version = proformaDraft?.id === activeProforma ? proformaDraft : serviceProforma(ship, activeProforma);
+  if (!version) return [];
+  const assignment = assignmentsFor(ship).filter((item) => item.proformaId === activeProforma).sort((left, right) => left.validFrom.localeCompare(right.validFrom)).at(-1);
+  if (!proformaTemplate && !assignment) return [];
+  const delta = proformaTemplate ? 0 : assignment.offsetWeeks * 7 * DAY;
+  return version.stops.map((stop) => ({...stop, arrival: iso(instant(stop.arrival) + delta), departure: iso(instant(stop.departure) + delta)}));
+}
 function resolveVoyage(ship, date) {
   const day = date.slice(0, 10);
   if (ship.voyages[day]) return {key: day, source: 'actual', ...ship.voyages[day]};
   const assignments = assignmentsFor(ship).filter((item) => item.validFrom <= day).sort((left, right) => left.validFrom.localeCompare(right.validFrom));
-  if (!assignments.length) return null;
+  if (!assignments.length) {
+    const actuals = Object.entries(ship.voyages).filter(([key, voyage]) => key <= day && voyage.stops.some((stop) => stop.departure.slice(0, 10) >= day));
+    if (!actuals.length) return null;
+    const [key, voyage] = actuals.sort(([left], [right]) => left.localeCompare(right)).at(-1);
+    return {key, source: 'actual', ...voyage};
+  }
   const assignment = assignments.at(-1), version = serviceProforma(ship, assignment.proformaId);
   if (!version) return null;
   const period = version.repeatWeeks * 7 * DAY, anchor = instant(version.stops[0].arrival) + assignment.offsetWeeks * 7 * DAY;
@@ -54,7 +81,7 @@ function resolveVoyage(ship, date) {
   return {key, source: 'proforma', proformaId: version.id, stops};
 }
 function stopsFor(ship, date = activeDate, editable = false) {
-  if (mode === 'proformas') return editable ? clone(proformaDraft?.stops || []) : (proformaDraft?.stops || serviceProforma(ship, activeProforma)?.stops || []);
+  if (mode === 'proformas') return proformaStops(ship);
   const voyage = displayVoyage(ship, date);
   if (!voyage) return [];
   if (editable && !ship.voyages[voyage.key]) ship.voyages[voyage.key] = {proformaId: voyage.proformaId, stops: voyage.stops};
@@ -70,7 +97,7 @@ function displayVoyage(ship, date) {
   return voyage;
 }
 const shipById = (id, date = activeDate) => { const ship = working.find((item) => item.id === id); return {...ship, stops: stopsFor(ship, date)}; };
-const baselineShip = (id, date = activeDate) => { const ship = saved.ships.find((item) => item.id === id); return {...ship, stops: mode === 'proformas' ? (serviceProforma(ship, activeProforma)?.stops || []) : stopsFor(ship, date)}; };
+const baselineShip = (id, date = activeDate) => { const ship = saved.ships.find((item) => item.id === id); return {...ship, stops: stopsFor(ship, date)}; };
 const changed = (shipId, stop, date = activeDate) => JSON.stringify(stop) !== JSON.stringify(baselineShip(shipId, date).stops.find((old) => old.id === stop.id));
 const shipDirtyCount = (ship) => Number(JSON.stringify(ship) !== JSON.stringify(saved.ships.find((item) => item.id === ship.id)));
 const dirtyCount = () => working.reduce((count, ship) => count + shipDirtyCount(ship), 0);
@@ -92,8 +119,10 @@ function shipColor(ship) {
 
 function minimumTransit(ship, origin, destination) {
   const from = saved.ports.find((port) => port.id === origin), to = saved.ports.find((port) => port.id === destination);
-  const distance = from?.distancesNm?.[destination] ?? to?.distancesNm?.[origin] ?? 100;
-  const speed = ship.maxSpeedKnots ?? 20;
+  const distance = origin === destination ? 0 : from?.distancesNm?.[destination] ?? to?.distancesNm?.[origin];
+  if (!Number.isFinite(distance) || distance < 0) throw new Error(`Entfernung zwischen ${origin} und ${destination} fehlt oder ist ungueltig.`);
+  const speed = ship.maxSpeedKnots;
+  if (!Number.isFinite(speed) || speed <= 0) throw new Error(`Maximalgeschwindigkeit fuer ${ship.name} fehlt oder ist ungueltig.`);
   return {distance, speed, hours: distance / speed};
 }
 
@@ -154,8 +183,8 @@ function notify(message, error = false) {
 
 function persistDraft() {
   try {
-    if (dirtyCount()) localStorage.setItem('harborline-draft', JSON.stringify({dataSignature: saved.dataSignature, baseShips: saved.ships, ships: working, mode, activeProforma, selected, activeDate}));
-    else localStorage.removeItem('harborline-draft');
+    if (dirtyCount()) localStorage.setItem(storageKey('harborline-draft'), JSON.stringify({dataSignature: saved.dataSignature, baseShips: saved.ships, ships: working, mode, activeProforma, selected, activeDate}));
+    else localStorage.removeItem(storageKey('harborline-draft'));
   } catch { notify('Der Browser kann den Entwurf nicht zwischenspeichern.', true); }
 }
 
@@ -244,7 +273,8 @@ function visibleVoyages(ship) {
 
 function transitRow(position, port, nextPort, voyages) {
   const ship = working.find((item) => item.id === selected);
-  let content = '';
+  const todayStart = localToday();
+  let content = todayStart >= START && todayStart < END ? `<span class="today-band" style="left:${(todayStart - START) / DAY * dayWidth}px;width:${dayWidth}px"></span>` : '';
   let needsRotation = false;
   for (const voyage of voyages) {
     for (const [index, stay] of voyage.stops.entries()) {
@@ -253,7 +283,8 @@ function transitRow(position, port, nextPort, voyages) {
     const duration = (instant(stay.departure) - instant(stay.arrival)) / HOUR;
     const left = (instant(stay.arrival) - START) / DAY * dayWidth;
     const width = duration / 24 * dayWidth;
-    content += `<button type="button" class="stay-box ${voyage.source === 'proforma' || mode === 'proformas' ? 'proforma-pattern' : ''}" data-overview-stop="${stay.id}" data-voyage="${voyage.key}" style="left:${left}px;width:${Math.max(width, 6)}px" title="${escapeHtml(ship.name)}\nLiegezeit: ${duration} h"><strong>${escapeHtml(ship.name)}</strong><span>Liegezeit: ${duration} h</span></button>`;
+    const label = mode === 'proformas' && proformaTemplate ? serviceProforma(ship, activeProforma)?.name || ship.name : ship.name;
+    content += `<button type="button" class="stay-box ${voyage.source === 'proforma' || mode === 'proformas' ? 'proforma-pattern' : ''}" data-overview-stop="${stay.id}" data-voyage="${voyage.key}" style="left:${left}px;width:${Math.max(width, 6)}px" title="${escapeHtml(label)}\nLiegezeit: ${roundedHours(duration)} h"><strong>${escapeHtml(label)}</strong><span>Liegezeit: ${roundedHours(duration)} h</span></button>`;
     content += referenceHtml(ship, stay, voyage, true);
     if (next) {
       const gap = (instant(next.arrival) - instant(stay.departure)) / HOUR;
@@ -263,7 +294,7 @@ function transitRow(position, port, nextPort, voyages) {
         ? `<button type="button" class="change-rotation" data-change-rotation="${voyage.key}" data-rotation-ship="${ship.id}">Change Rotation</button>` : '';
       if (rotationButton) needsRotation = true;
       const transitLeft = (instant(stay.departure) - START) / DAY * dayWidth;
-      content += `<form class="transit-editor" data-transit="${next.id}" data-voyage="${voyage.key}" style="left:${transitLeft}px"><span>${escapeHtml(port.name)} &rarr; ${escapeHtml(destination.name)}</span><label><input type="number" min="0" max="10000" step="0.25" value="${next.transitMinutes / 60}" aria-label="Transit nach ${escapeHtml(destination.name)} in Stunden" required ${harborOverview ? 'disabled' : ''}> h</label><button type="submit" title="Transit anwenden und Ankunft neu berechnen" aria-label="Transit anwenden" ${harborOverview ? 'hidden' : ''}>&#10003;</button><small class="${gap < minimum.hours ? 'negative-gap' : ''}">${Math.round(gap * 100) / 100} h verf\u00fcgbar / min. ${Number(minimum.hours.toFixed(2))} h (${minimum.distance} sm / ${minimum.speed} kn)</small>${rotationButton}</form>`;
+      content += `<form class="transit-editor" data-transit="${next.id}" data-voyage="${voyage.key}" style="left:${transitLeft}px"><span>${escapeHtml(port.name)} &rarr; ${escapeHtml(destination.name)}</span><label><input type="number" min="0" max="10000" step="0.01" value="${roundedHours(next.transitMinutes / 60)}" aria-label="Transit nach ${escapeHtml(destination.name)} in Stunden" required ${harborOverview ? 'disabled' : ''}> h</label><button type="submit" title="Transit anwenden und Ankunft neu berechnen" aria-label="Transit anwenden" ${harborOverview ? 'hidden' : ''}>&#10003;</button><small class="${gap < minimum.hours ? 'negative-gap' : ''}">${roundedHours(gap)} h verf\u00fcgbar / min. ${roundedHours(minimum.hours)} h (${minimum.distance} sm / ${minimum.speed} kn)</small>${rotationButton}</form>`;
     }
     }
   }
@@ -278,13 +309,16 @@ function renderChart() {
   chart.classList.toggle('compare-proforma', compareProforma && !harborOverview && mode === 'planning');
   let days = '';
   let weekendBands = '';
+  const todayStart = localToday();
   for (let index = 0; index < DAYS; index++) {
     const date = new Date(START + index * DAY);
     const weekend = [0, 6].includes(date.getUTCDay());
+    const isToday = date.getTime() === todayStart;
     const hours = dayWidth >= 240 ? `<div class="hour-labels">${Array.from({length: 8}, (_, hour) => `<span>${String(hour * 3).padStart(2, '0')}:00</span>`).join('')}</div>` : '';
-    days += `<div class="day ${weekend ? 'weekend' : ''} ${date.getUTCDay() === 1 ? 'week-start' : ''}">${dateLabel(date, {day: '2-digit', month: '2-digit'})}<small>${dateLabel(date, {weekday: 'short'})}</small>${hours}</div>`;
+    days += `<div class="day ${isToday ? 'today' : ''} ${weekend ? 'weekend' : ''} ${date.getUTCDay() === 1 ? 'week-start' : ''}" ${isToday ? 'aria-current="date"' : ''}>${dateLabel(date, {day: '2-digit', month: '2-digit'})}<small>${dateLabel(date, {weekday: 'short'})}</small>${hours}</div>`;
     if (weekend) weekendBands += `<span class="weekend-band" style="left:${index * dayWidth}px;width:${dayWidth}px"></span>`;
   }
+  if (todayStart >= START && todayStart < END) weekendBands += `<span class="today-band" style="left:${(todayStart - START) / DAY * dayWidth}px;width:${dayWidth}px"></span>`;
   let html = `<div class="time-header"><div class="time-corner">HAFEN / LIEGEPLATZ</div><div class="time-days">${days}</div></div>`;
   const route = shipById(selected).stops;
   const selectedVoyages = visibleVoyages(working.find((ship) => ship.id === selected));
@@ -294,16 +328,16 @@ function renderChart() {
     if (position && !harborOverview) {
       html += transitRow(position - 1, ports[position - 1], port, selectedVoyages);
     }
-    const canInsert = route.some((stop, index) => stop.portId === port.id && index < route.length - 1);
-    const addButton = !harborOverview && mode === 'planning' ? `<button type="button" class="add-port-button" data-add-port="${port.id}" ${canInsert ? '' : 'disabled'} title="Zus\u00e4tzlichen Hafen nach diesem Aufenthalt einf\u00fcgen">+ Hafen hinzuf\u00fcgen</button>` : '';
-    html += `<div class="port-heading"><button class="port-label port-toggle" data-collapse="${port.id}" aria-expanded="${!collapsed.has(port.id)}" title="Hafen ein- oder ausklappen"><span class="chevron ${collapsed.has(port.id) ? 'closed' : ''}">&#9662;</span>${escapeHtml(port.name)}</button><div class="port-note">${port.berths} LIEGEPL${port.berths === 1 ? 'ATZ' : '&Auml;TZE'}</div>${addButton}</div>`;
+    const canInsert = route.some((stop) => stop.portId === port.id);
+    const addButton = !harborOverview && mode === 'planning' ? `<button type="button" class="add-port-button" data-add-port="${port.id}" ${canInsert ? '' : 'disabled'} title="Zus\u00e4tzlichen Hafen vor diesem Aufenthalt einf\u00fcgen">+ Hafen hinzuf\u00fcgen</button>` : '';
+    html += `<div class="port-heading"><div class="port-heading-content"><button class="port-label port-toggle" data-collapse="${port.id}" aria-expanded="${!collapsed.has(port.id)}" title="Hafen ein- oder ausklappen"><span class="chevron ${collapsed.has(port.id) ? 'closed' : ''}">&#9662;</span>${escapeHtml(port.name)}</button><div class="port-note">${port.berths} LIEGEPL${port.berths === 1 ? 'ATZ' : '&Auml;TZE'}</div>${addButton}</div></div>`;
     if (collapsed.has(port.id)) continue;
     for (let berth = 1; berth <= port.berths; berth++) {
       if (hiddenBerths.has(`${port.id}:${berth}`)) continue;
       let bars = '';
       for (const raw of chartShips) {
         for (const voyage of visibleVoyages(raw)) {
-        const ship = {...raw, stops: voyage.stops};
+        const ship = {...raw, name: mode === 'proformas' && proformaTemplate ? serviceProforma(raw, activeProforma)?.name || raw.name : raw.name, stops: voyage.stops};
         for (const stop of ship.stops.filter((item) => item.portId === port.id)) {
           const old = baselineShip(ship.id, voyage.key).stops.find((item) => item.id === stop.id);
           if (changed(ship.id, stop, voyage.key) && old?.berth === berth) bars += barHtml(ship, old, true, voyage.key);
@@ -321,7 +355,7 @@ function renderChart() {
   if (!ports.length && !harborOverview) html += '<div class="empty-ports">Kein Fahrplan f\u00fcr diesen Zeitraum vorhanden</div>';
   chart.innerHTML = html;
   chart.classList.toggle('hourly', dayWidth >= 240);
-  chart.classList.toggle('proforma-readonly', false);
+  chart.classList.toggle('proforma-readonly', mode === 'proformas');
   $('#visible-range').textContent = `${dateLabel(START, {day: '2-digit', month: '2-digit', year: 'numeric'})} - ${dateLabel(START + (DAYS - 1) * DAY, {day: '2-digit', month: '2-digit', year: 'numeric'})}`;
   $('#timeline-start').value = iso(START).slice(0, 10);
   $('#timeline-end').value = iso(END - DAY).slice(0, 10);
@@ -344,12 +378,12 @@ function renderSidebar() {
   $('#fleet-title').textContent = harborOverview ? 'H\u00e4fen' : 'Schiffe';
   $('#fleet').classList.toggle('harbor-list', harborOverview);
   $('.route-section').hidden = harborOverview;
-  $('#fleet').innerHTML = harborOverview ? saved.ports.map((port) => `<label class="port-choice"><input type="checkbox" data-pick-port="${port.id}" ${selectedPorts.has(port.id) ? 'checked' : ''}><span>${escapeHtml(portLabel(port))}</span><small>${port.berths} LP</small></label>`).join('') : working.filter((ship) => ship.serviceId === selectedService).map((ship) => {
+  $('#fleet').innerHTML = harborOverview ? saved.ports.map((port) => `<label class="port-choice"><input type="checkbox" data-pick-port="${port.id}" ${selectedPorts.has(port.id) ? 'checked' : ''}><span>${escapeHtml(portLabel(port))}</span><small>${port.berths} LP</small></label>`).join('') : (mode === 'proformas' ? `<button type="button" class="fleet-button ${proformaTemplate ? 'active' : ''}" data-template>Proforma ohne Wochenversatz</button>` : '') + working.filter((ship) => ship.serviceId === selectedService).map((ship) => {
     const count = shipDirtyCount(ship);
-    return `<button class="fleet-button ${ship.id === selected ? 'active' : ''}" data-select="${ship.id}" style="--ship-color:${shipColor(ship)}"><span class="vessel-dot"></span><span>${escapeHtml(ship.name)}<small class="fleet-service">${ship.serviceId}</small></span>${count ? '<span class="vessel-draft">Pending</span>' : ''}</button>`;
+    return `<button class="fleet-button ${ship.id === selected && !(mode === 'proformas' && proformaTemplate) ? 'active' : ''}" data-select="${ship.id}" style="--ship-color:${shipColor(ship)}"><span class="vessel-dot"></span><span>${escapeHtml(ship.name)}<small class="fleet-service">${ship.serviceId}${mode === 'proformas' && !assignmentsFor(ship).some((item) => item.proformaId === activeProforma) ? ' / Keine Zuordnung' : ''}</small></span>${count ? '<span class="vessel-draft">Pending</span>' : ''}</button>`;
   }).join('');
   const ship = shipById(selected);
-  $('#route').innerHTML = ship.stops.map((stop, index) => `<div class="route-stop"><button data-detail="${stop.id}">${escapeHtml(saved.ports.find((port) => port.id === stop.portId).name)}</button><div class="route-time">${shortDate(instant(stop.arrival))}</div>${index ? `<button class="transit" data-detail="${stop.id}" title="Transit bearbeiten">${stop.transitMinutes / 60} h Transit</button>` : ''}</div>`).join('');
+  $('#route').innerHTML = ship.stops.map((stop, index) => `<div class="route-stop"><button data-detail="${stop.id}">${escapeHtml(saved.ports.find((port) => port.id === stop.portId).name)}</button><div class="route-time">${shortDate(instant(stop.arrival))}</div>${index ? `<button class="transit" data-detail="${stop.id}" title="Transit bearbeiten">${roundedHours(stop.transitMinutes / 60)} h Transit</button>` : ''}</div>`).join('');
   const visibleProblems = [...new Map(problems.map((item) => [`${item.isNew}:${item.message}`, item])).values()];
   $('#route-count').textContent = `${ship.stops.length} H\u00e4fen`;
   $('#fleet-count').textContent = harborOverview ? `${selectedPorts.size} / ${saved.ports.length}` : String(working.filter((ship) => ship.serviceId === selectedService).length).padStart(2, '0');
@@ -424,8 +458,15 @@ function render() {
 }
 
 function selectShip(id, focus = false) {
+  if (mode === 'proformas') proformaTemplate = false;
   selected = id;
-  selectedService = working.find((ship) => ship.id === id).serviceId;
+  const selectedShip = working.find((ship) => ship.id === id);
+  selectedService = selectedShip.serviceId;
+  if (mode === 'planning' && !resolveVoyage(selectedShip, activeDate) && !assignmentsFor(selectedShip).length) {
+    const actuals = Object.entries(selectedShip.voyages).sort(([left], [right]) => left.localeCompare(right));
+    const visible = visibleVoyages(selectedShip).sort((left, right) => left.key.localeCompare(right.key));
+    activeDate = visible[0]?.key || actuals[0]?.[0] || activeDate;
+  }
   if (!proformasFor(working.find((ship) => ship.id === id)).some((item) => item.id === activeProforma)) activeProforma = assignmentsFor(working.find((ship) => ship.id === id))[0]?.proformaId || proformasFor(working.find((ship) => ship.id === id))[0]?.id || null;
   if (mode === 'proformas') { proformaDraft = clone(serviceProforma(working.find((ship) => ship.id === id), activeProforma)); proformaDirty = false; proformaIsNew = false; }
   $('#inspector').hidden = true;
@@ -444,6 +485,11 @@ function focusShip() {
 }
 
 function openInspector(shipId, stopId, date = activeDate) {
+  if (mode === 'planning' && !harborOverview) {
+    selected = shipId;
+    activeDate = date;
+    render();
+  }
   editing = {shipId, stopId, date};
   const ship = shipById(shipId, date), stop = ship.stops.find((item) => item.id === stopId);
   const port = saved.ports.find((item) => item.id === stop.portId);
@@ -453,13 +499,13 @@ function openInspector(shipId, stopId, date = activeDate) {
   $('#detail-berth').value = stop.berth;
   $('#detail-arrival').value = stop.arrival;
   $('#detail-departure').value = stop.departure;
-  $('#detail-transit').value = stop.transitMinutes / 60;
+  $('#detail-transit').value = roundedHours(stop.transitMinutes / 60);
   const first = ship.stops[0].id === stopId;
   $('#detail-transit').disabled = first;
   $('#recalculate').disabled = first;
   $('#recalculate').checked = false;
   $('#detail-error').textContent = '';
-  const readOnly = harborOverview;
+  const readOnly = harborOverview || mode === 'proformas';
   for (const field of ['#detail-berth', '#detail-arrival', '#detail-departure']) $(field).disabled = readOnly;
   $('#detail-transit').disabled = readOnly || first;
   $('#recalculate').disabled = readOnly || first;
@@ -510,7 +556,7 @@ function switchMode(nextMode) {
   if (typeof masterDataDirty !== 'undefined' && masterDataDirty && !confirm('Ungespeicherte Stammdaten verwerfen?')) return;
   if (typeof masterDataDirty !== 'undefined') masterDataDirty = false;
   mode = nextMode;
-  if (nextMode === 'proformas') harborOverview = false;
+  if (nextMode === 'proformas') { harborOverview = false; proformaTemplate = true; }
   $('#inspector').hidden = true;
   render();
   if (nextMode === 'planning' || nextMode === 'proformas') focusShip();
@@ -618,11 +664,11 @@ function openAddPort(portId) {
   if (saving || mode !== 'planning' || harborOverview) return;
   const ship = working.find((item) => item.id === selected), voyage = displayVoyage(ship, activeDate);
   if (!voyage) return;
-  const eligible = voyage.stops.filter((stop, index) => stop.portId === portId && index < voyage.stops.length - 1);
-  if (!eligible.length) { notify('Ein zus\u00e4tzlicher Hafen ben\u00f6tigt einen folgenden Aufenthalt.', true); return; }
+  const eligible = voyage.stops.filter((stop) => stop.portId === portId);
+  if (!eligible.length) { notify('Kein Aufenthalt in diesem Hafen vorhanden.', true); return; }
   addingPort = {shipId: ship.id, voyageDate: voyage.key};
   $('#add-port-context').textContent = `${ship.name} / Reise ${voyage.key}`;
-  $('#add-port-after').innerHTML = eligible.map((stop) => `<option value="${escapeHtml(stop.id)}">${escapeHtml(saved.ports.find((port) => port.id === stop.portId).name)} / ${shortDate(instant(stop.departure))}</option>`).join('');
+  $('#add-port-before').innerHTML = eligible.map((stop) => `<option value="${escapeHtml(stop.id)}">${escapeHtml(saved.ports.find((port) => port.id === stop.portId).name)} / ${shortDate(instant(stop.arrival))}</option>`).join('');
   $('#add-port-choice').innerHTML = saved.ports.map((port) => `<option value="${escapeHtml(port.id)}">${escapeHtml(portLabel(port))}</option>`).join('');
   const defaultPort = saved.ports.find((port) => !voyage.stops.some((stop) => stop.portId === port.id)) || saved.ports[0];
   $('#add-port-choice').value = defaultPort.id;
@@ -642,7 +688,7 @@ $('#add-port-form').addEventListener('submit', async (event) => {
   $('#confirm-add-port').disabled = true;
   $('#add-port-error').textContent = '';
   try {
-    const response = await fetch(`/api/ships/${encodeURIComponent(shipId)}/adhoc-stop`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dataSignature: saved.dataSignature, voyageDate, stops: voyage.stops, afterStopId: $('#add-port-after').value, portId: $('#add-port-choice').value})});
+    const response = await fetch(`/api/ships/${encodeURIComponent(shipId)}/adhoc-stop`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dataSignature: saved.dataSignature, voyageDate, stops: voyage.stops, beforeStopId: $('#add-port-before').value, portId: $('#add-port-choice').value})});
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Hafen konnte nicht eingef\u00fcgt werden.');
     if (before !== JSON.stringify(working)) throw new Error('Der Entwurf wurde inzwischen ge\u00e4ndert. Bitte erneut einf\u00fcgen.');
@@ -754,7 +800,7 @@ $('#view-select').addEventListener('change', (event) => {
   if (!views[name]) return;
   applyView(views[name]);
   $('#view-name').value = name;
-  try { localStorage.setItem('harborline-view', name); } catch {}
+  try { localStorage.setItem(storageKey('harborline-view'), name); } catch {}
 });
 $('#save-view').addEventListener('click', () => {
   const name = $('#view-name').value.trim();
@@ -763,8 +809,8 @@ $('#save-view').addEventListener('click', () => {
     start: iso(START), end: iso(END - DAY), selected, compareProforma, harborOverview, selectedPorts: [...selectedPorts], scrollLeft: $('#chart-scroll').scrollLeft, scrollTop: $('#chart-scroll').scrollTop};
   try {
     const updated = {...views, [name]: config};
-    localStorage.setItem('harborline-views', JSON.stringify(updated));
-    localStorage.setItem('harborline-view', name);
+    localStorage.setItem(storageKey('harborline-views'), JSON.stringify(updated));
+    localStorage.setItem(storageKey('harborline-view'), name);
     views = updated;
     populateViews(name);
     $('#view-options').open = false;
@@ -869,6 +915,7 @@ $('#chart').addEventListener('pointerdown', (event) => {
     const next = clone(working), raw = next.find((item) => item.id === shipId);
     const nextShip = {...raw, stops: mode === 'proformas' ? clone(proformaDraft.stops) : stopsFor(raw, voyageDate, true)}, nextStop = nextShip.stops[index];
     selected = shipId;
+    activeDate = voyageDate;
     if (resize) {
       nextStop.departure = iso(instant(nextStop.departure) + delta);
       if ($('#cascade').checked) shiftStops(nextShip, index + 1, delta);
@@ -925,7 +972,11 @@ $('#service-select').addEventListener('change', (event) => {
   selectedService = event.target.value;
   selectShip(working.find((ship) => ship.serviceId === selectedService).id, true);
 });
-$('#fleet').addEventListener('click', (event) => { const button = event.target.closest('[data-select]'); if (button) selectShip(button.dataset.select, true); });
+$('#fleet').addEventListener('click', (event) => {
+  if (event.target.closest('[data-template]')) { proformaTemplate = true; render(); focusShip(); return; }
+  const button = event.target.closest('[data-select]');
+  if (button) selectShip(button.dataset.select, true);
+});
 $('#fleet').addEventListener('change', (event) => {
   const id = event.target.dataset.pickPort;
   if (!id) return;
@@ -934,6 +985,7 @@ $('#fleet').addEventListener('change', (event) => {
 });
 $('#route').addEventListener('click', (event) => { const button = event.target.closest('[data-detail]'); if (button) openInspector(selected, button.dataset.detail); });
 $('#focus').addEventListener('click', focusShip);
+$('#today').addEventListener('click', jumpToToday);
 $('#zoom').addEventListener('input', (event) => zoomAt(Number(event.target.value)));
 $('#compare-proforma').addEventListener('change', (event) => {
   compareProforma = event.target.checked;
@@ -998,8 +1050,9 @@ document.addEventListener('keydown', (event) => {
 async function initialize() {
   try {
     const response = await fetch('/api/plan');
-    if (!response.ok) throw new Error('Fahrpl\u00e4ne konnten nicht geladen werden.');
-    saved = await response.json();
+    const plan = await response.json();
+    if (!response.ok) throw new Error(plan.error || 'Fahrpl\u00e4ne konnten nicht geladen werden.');
+    saved = plan;
     working = clone(saved.ships);
     if (!working.length) throw new Error('Keine Schiffsdateien vorhanden.');
     const firstShip = working[0];
@@ -1008,11 +1061,14 @@ async function initialize() {
     selected = firstShip.id;
     selectedService = firstShip.serviceId;
     activeProforma = firstVersion?.id || null;
-    activeDate = (firstAssignment && resolveVoyage(firstShip, firstAssignment.validFrom)?.key) || firstVersion?.stops[0].arrival.slice(0, 10) || Object.keys(firstShip.voyages).sort()[0] || iso(START).slice(0, 10);
-    START = dayInstant(activeDate) - 2 * DAY;
-    END = addMonths(START, 6);
+    activeDate = iso(localToday()).slice(0, 10);
+    $('#import-vessel').value = firstShip.vesselName || firstShip.name;
+    const importToday = new Date();
+    const importStart = Date.UTC(importToday.getFullYear(), importToday.getMonth(), importToday.getDate());
+    $('#import-from').value = iso(importStart).slice(0, 10);
+    $('#import-to').value = iso(addMonths(importStart, 2)).slice(0, 10);
     try {
-      const draft = JSON.parse(localStorage.getItem('harborline-draft') || 'null');
+      const draft = JSON.parse(localStorage.getItem(storageKey('harborline-draft')) || 'null');
       if (draft?.dataSignature && Array.isArray(draft.ships) && draft.ships.every((ship) => Array.isArray(ship.proformaAssignments) && ship.voyages)) {
         if (draft.dataSignature && draft.dataSignature !== saved.dataSignature) {
           const fresh = saved;
@@ -1020,7 +1076,7 @@ async function initialize() {
           notify('Die JSON-Dateien wurden extern ge\u00e4ndert. Dein Entwurf bleibt erhalten. Vor dem Aktualisieren bitte exportieren oder verwerfen.', true);
           dataChangeNotice = fresh.dataSignature;
         }
-        working = draft.ships.map((ship) => ({...saved.ships.find((item) => item.id === ship.id), ...ship, maxSpeedKnots: ship.maxSpeedKnots ?? saved.ships.find((item) => item.id === ship.id)?.maxSpeedKnots ?? 20}));
+        working = draft.ships.map((ship) => ({...saved.ships.find((item) => item.id === ship.id), ...ship, maxSpeedKnots: ship.maxSpeedKnots ?? saved.ships.find((item) => item.id === ship.id)?.maxSpeedKnots}));
         mode = 'planning';
         activeProforma = draft.activeProforma || firstVersion?.id || null;
         if (working.some((ship) => ship.id === draft.selected)) selected = draft.selected;
@@ -1029,14 +1085,14 @@ async function initialize() {
         if (/^\d{4}-\d{2}-\d{2}$/.test(draft.activeDate || '')) activeDate = draft.activeDate;
         if (!dataChangeNotice) notify('Lokaler Entwurf wiederhergestellt.');
       } else if (draft) { notify('Ein \u00e4lterer lokaler Entwurf passt nicht zum aktuellen Plan. Er bleibt im Browser gespeichert.', true); }
-    } catch { localStorage.removeItem('harborline-draft'); }
+    } catch { localStorage.removeItem(storageKey('harborline-draft')); }
     renderServiceOptions();
     updateImportScope();
     let localViews = {};
-    try { localViews = JSON.parse(localStorage.getItem('harborline-views') || '{}'); } catch {}
+    try { localViews = JSON.parse(localStorage.getItem(storageKey('harborline-views')) || '{}'); } catch {}
     views = localViews && typeof localViews === 'object' && !Array.isArray(localViews) ? localViews : {};
     let viewName = '';
-    try { viewName = localStorage.getItem('harborline-view') || ''; } catch {}
+    try { viewName = localStorage.getItem(storageKey('harborline-view')) || ''; } catch {}
     populateViews(viewName);
     if (views[viewName]) applyView(views[viewName]);
     render();
@@ -1085,7 +1141,13 @@ globalThis.addEventListener('focus', refreshData);
 function importPayload() {
   const text = $('#import-text').value.trim();
   const payload = {scope: $('#import-scope').value, serviceId: $('#import-scope').value === 'service' ? $('#import-service').value : null, excludedShips: [...importExcludedShips], choices: importChoices, vesselName: $('#import-vessel').value.trim(), fromDate: $('#import-from').value, toDate: $('#import-to').value, voyageDate: $('#import-voyage').value || null};
-  if (text.startsWith('{')) payload.packet = JSON.parse(text); else payload.text = text;
+  if (text.startsWith('{')) {
+    payload.packet = JSON.parse(text);
+    if (['maersk', 'hapag'].includes(payload.packet.source) && payload.packet.source !== $('#import-source').value) throw new Error('Die Importdaten passen nicht zur ausgewaehlten Datenquelle.');
+  } else {
+    if ($('#import-source').value === 'hapag') throw new Error('Fuer Hapag-Lloyd bitte live abrufen oder eine normalisierte Hapag-Import-JSON laden.');
+    payload.text = text;
+  }
   return payload;
 }
 
@@ -1175,9 +1237,10 @@ function updateImportScope() {
   $('#import-vessel-field').hidden = serviceMode;
   $('#import-service-field').hidden = !serviceMode;
   $('#import-vessel').required = !serviceMode;
-  $('#import-live').textContent = serviceMode ? 'Dienst live abrufen' : 'Maersk live abrufen';
+  const label = $('#import-source').selectedOptions[0].textContent;
+  $('#import-live').textContent = serviceMode ? `${label}: Dienst live abrufen` : `${label} live abrufen`;
 }
-for (const selector of ['#import-scope', '#import-service']) $(selector).addEventListener('change', () => {
+for (const selector of ['#import-scope', '#import-service', '#import-source']) $(selector).addEventListener('change', () => {
   importPreview = null; importChoices = {}; importExcludedShips.clear();
   updateImportScope(); renderImportPreview();
 });
@@ -1199,6 +1262,8 @@ $('#import-live').addEventListener('click', async () => {
   controls.forEach((control) => { control.disabled = true; });
   let loaded = false;
   try {
+    const source = $('#import-source').value;
+    const label = $('#import-source').selectedOptions[0].textContent;
     const serviceMode = $('#import-scope').value === 'service';
     const members = serviceMode ? saved.ships.filter((ship) => ship.serviceId === $('#import-service').value) : [{vesselName: $('#import-vessel').value}];
     if (!members.length) throw new Error('Der Dienst enth\u00e4lt keine Schiffe.');
@@ -1207,7 +1272,7 @@ $('#import-live').addEventListener('click', async () => {
       const name = (ship.vesselName || ship.name).trim();
       $('#import-state').textContent = `Live-Abruf ${index + 1}/${members.length}: ${name}`;
       try {
-        const response = await fetch('/api/import/maersk/live', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({vesselName: name, fromDate: $('#import-from').value, toDate: $('#import-to').value, headed: $('#import-browser').checked})});
+        const response = await fetch(`/api/import/${encodeURIComponent(source)}/live`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({vesselName: name, fromDate: $('#import-from').value, toDate: $('#import-to').value})});
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Live-Abruf fehlgeschlagen.');
         packets.push(result.packet);
@@ -1216,9 +1281,9 @@ $('#import-live').addEventListener('click', async () => {
         errors.push({shipId: ship.id, vesselName: name, error: error.message});
       }
     }
-    const packet = serviceMode ? {schemaVersion: 1, source: 'maersk', serviceId: $('#import-service').value, packets, errors} : packets[0];
+    const packet = serviceMode ? {schemaVersion: 1, source, serviceId: $('#import-service').value, packets, errors} : packets[0];
     $('#import-text').value = JSON.stringify(packet, null, 2);
-    $('#import-origin').textContent = serviceMode ? `Live: Maersk / ${packets.length} erfolgreich / ${errors.length} fehlgeschlagen` : `Live: Maersk / ${packet.fetchedAt}`;
+    $('#import-origin').textContent = serviceMode ? `Live: ${label} / ${packets.length} erfolgreich / ${errors.length} fehlgeschlagen` : `Live: ${label} / ${packet.fetchedAt}`;
     importChoices = {};
     importExcludedShips.clear();
     loaded = true;
@@ -1237,6 +1302,7 @@ $('#import-file').addEventListener('change', async (event) => {
   $('#import-text').value = await file.text();
   try {
     const packet = JSON.parse($('#import-text').value);
+    if (['maersk', 'hapag'].includes(packet.source)) $('#import-source').value = packet.source;
     if (packet.packets && packet.serviceId) { $('#import-scope').value = 'service'; $('#import-service').value = packet.serviceId; }
     else { $('#import-scope').value = 'ship'; if (packet.vesselName) $('#import-vessel').value = packet.vesselName; }
     if (packet.fromDate) $('#import-from').value = packet.fromDate;

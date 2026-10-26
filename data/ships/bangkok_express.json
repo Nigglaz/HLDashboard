@@ -1,15 +1,15 @@
 {
   "id": "bangkok_express",
-  "voyages": {},
-  "name": "Bangkok Express",
-  "vesselName": "BANGKOK EXPRESS",
-  "serviceId": "NE2",
   "maxSpeedKnots": 20,
+  "name": "Bangkok Express",
   "proformaAssignments": [
     {
+      "offsetWeeks": 7,
       "proformaId": "ne2-2026",
-      "validFrom": "2026-10-26",
-      "offsetWeeks": 7
+      "validFrom": "2026-10-26"
     }
-  ]
+  ],
+  "serviceId": "NE2",
+  "vesselName": "BANGKOK EXPRESS",
+  "voyages": {}
 }

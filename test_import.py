@@ -1,14 +1,15 @@
 import unittest
 import tempfile
 import json
+import sys
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
-from app import PORTS, SERVICES, create_app, example_schedule
-from planning import migrate_service_proformas, migrate_ship, resolve_voyage, validate_ship
-from schedule_import import parse_maersk_text, prepare_import, prepare_service_import, resolve_port, vessel_identifier, vessel_key
+from planning import migrate_service_proformas, resolve_voyage, validate_ship
+from test_support import create_test_app as create_app, legacy_test_ships, load_test_plan
+from schedule_import import MAERSK_URL, parse_maersk_text, prepare_import, prepare_service_import, resolve_port, vessel_identifier, vessel_key
 from import_maersk import fetch_schedule
 
 
@@ -60,8 +61,10 @@ Departure - 703E
 class ImportTests(unittest.TestCase):
     def setUp(self):
         self.packet = parse_maersk_text(SAMPLE, "MATHILDE MAERSK", "2027-01-01", "2027-03-01")
-        ships = [migrate_ship(ship) for ship in example_schedule()["ships"]]
-        self.plan = {"ships": ships, "ports": [dict(port) for port in PORTS], "services": deepcopy(SERVICES)}
+        ships = legacy_test_ships()
+        self.plan = load_test_plan()
+        for service in self.plan["services"]:
+            service["proformas"] = []
         self.plan["ships"], self.plan["services"] = migrate_service_proformas(ships, self.plan["services"])
         aliases = {"london": ["London Gateway Terminal"], "hamburg": ["Eurogate Container Terminal Hamburg"], "rotterdam": ["APM 2 Terminal Maasvlakte II"], "algeciras": ["Algeciras - ML Terminal"]}
         for port in self.plan["ports"]:
@@ -209,6 +212,14 @@ class ImportTests(unittest.TestCase):
             payload["excludedShips"] = [preview["errors"][0]["shipId"]]
             self.assertEqual(client.post("/api/import/apply", json=payload).status_code, 200)
 
+    def test_dashboard_always_uses_headed_import_even_if_payload_requests_headless(self):
+        with tempfile.TemporaryDirectory() as directory:
+            client = create_app(directory).test_client()
+            with patch("app.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout=json.dumps(self.packet), stderr="")) as runner:
+                response = client.post("/api/import/maersk/live", json={"vesselName": "MATHILDE MAERSK", "fromDate": "2027-01-01", "toDate": "2027-03-01", "headed": False})
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("--headed", runner.call_args.args[0])
+
     def test_multiple_rounds_cannot_be_merged_accidentally(self):
         packet = deepcopy(self.packet)
         packet["toDate"] = "2027-05-01"
@@ -237,6 +248,31 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(actual[0], original)
         self.assertTrue(preview["rows"][1]["outsideWindow"])
         self.assertFalse(preview["rows"][1]["include"])
+
+    def test_shifted_proforma_call_crossing_import_start_replaces_template_instead_of_duplicating(self):
+        ship = self.plan["ships"][-1]
+        packet = deepcopy(self.packet)
+        packet["calls"] = [call for call in packet["calls"] if call["portName"] == "London Gateway"]
+        packet["calls"][0].update(arrival="2027-01-17T14:00", departure="2027-01-19T04:00")
+        preview = prepare_import(self.plan, packet, from_date="2027-01-17", to_date="2027-01-19")
+        stops = preview["candidate"]["voyages"]["2027-01-16"]["stops"]
+        london = [stop for stop in stops if stop["portId"] == "london"]
+        self.assertEqual(len(london), 1)
+        self.assertEqual(london[0]["arrival"], "2027-01-17T14:00")
+        self.assertEqual(preview["changes"][0]["status"], "changed")
+        self.assertEqual(ship["voyages"], {})
+
+    def test_shifted_actual_call_does_not_overwrite_protected_history(self):
+        ship = self.plan["ships"][-1]
+        voyage = resolve_voyage(ship, "2027-01-16", self.plan["services"])
+        ship["voyages"][voyage["key"]] = {"proformaId": voyage["proformaId"], "stops": deepcopy(voyage["stops"])}
+        packet = deepcopy(self.packet)
+        packet["calls"] = [call for call in packet["calls"] if call["portName"] == "London Gateway"]
+        packet["calls"][0].update(arrival="2027-01-17T14:00", departure="2027-01-19T04:00")
+        preview = prepare_import(self.plan, packet, from_date="2027-01-17", to_date="2027-01-19")
+        london = [stop for stop in preview["candidate"]["voyages"][voyage["key"]]["stops"] if stop["portId"] == "london"]
+        self.assertEqual(len(london), 2)
+        self.assertEqual(london[0], voyage["stops"][0])
 
     def test_first_import_into_ship_without_schedule(self):
         ship = self.plan["ships"][-1]
@@ -280,7 +316,7 @@ class ImportTests(unittest.TestCase):
         import subprocess
         import sys
         root = Path(__file__).parent
-        result = subprocess.run([sys.executable, str(root / "import_maersk.py"), "--input", str(root / "examples/maersk_mathilde_2027.txt")], capture_output=True, text=True, encoding="utf-8", timeout=20)
+        result = subprocess.run([sys.executable, str(root / "import_maersk.py"), "--input", str(root / "examples/maersk_mathilde_2027.txt"), "--vessel", self.packet["vesselName"], "--from", self.packet["fromDate"], "--to", self.packet["toDate"]], capture_output=True, text=True, encoding="utf-8", timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr)
         packet = json.loads(result.stdout)
         self.assertEqual(packet["source"], "maersk")
@@ -293,9 +329,15 @@ class ImportTests(unittest.TestCase):
             locator.first = locator
             locator.filter.return_value = locator
         typeahead.evaluate.return_value = {"vesselCode": "2BM", "vesselName": "MATHILDE MAERSK"}
+        date.evaluate.return_value = {"min": "2026-07-28", "max": "2027-01-24"}
         page.locator.side_effect = lambda selector: vessel if 'input[name="vesselName"]' in selector else date if 'input[name="vesselSchedulesDatePicker"]' in selector else option if selector.startswith('mc-option') else typeahead if selector.startswith('mc-typeahead') else status
         page.url = "https://www.maersk.com/schedules/vesselSchedules?vesselCode=2BM&fromDate=2027-01-01"
         status.inner_text.return_value = SAMPLE
+        actions = MagicMock()
+        actions.attach_mock(vessel.fill, "fill")
+        actions.attach_mock(vessel.click, "open_dropdown")
+        actions.attach_mock(option.wait_for, "wait_option")
+        actions.attach_mock(option.click, "select_option")
         with patch("playwright.sync_api.sync_playwright") as automation:
             browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
             browser.new_page.return_value = page
@@ -303,9 +345,140 @@ class ImportTests(unittest.TestCase):
             option.click.assert_called_once()
             vessel.press.assert_not_called()
             page.wait_for_url.assert_called_once()
+            self.assertEqual(page.wait_for_url.call_args.kwargs, {"wait_until": "commit", "timeout": 15000})
             browser.close.assert_called_once()
+            page.set_default_timeout.assert_called_once_with(20000)
+            page.set_default_navigation_timeout.assert_called_once_with(20000)
+            page.goto.assert_called_once_with(MAERSK_URL, wait_until="commit", timeout=20000)
+            vessel.wait_for.assert_called_once_with(state="visible", timeout=20000)
+            option.wait_for.assert_called_once_with(state="visible", timeout=20000)
+            status.wait_for.assert_not_called()
+            self.assertEqual([call[0] for call in actions.mock_calls], ["fill", "open_dropdown", "wait_option", "select_option"])
+            expected_options = {"headless": False, "timeout": 20000}
+            if sys.platform == "win32":
+                expected_options["channel"] = "msedge"
+            automation.return_value.__enter__.return_value.chromium.launch.assert_called_once_with(**expected_options)
         self.assertEqual(text, SAMPLE)
         self.assertIn("vesselCode=2BM", url)
+
+    def test_live_browser_rejects_dates_outside_source_range_before_search(self):
+        for start in ("2026-01-03", "2027-01-25"):
+            with self.subTest(start=start):
+                page, locator, date = MagicMock(), MagicMock(), MagicMock()
+                locator.last = locator.first = locator
+                locator.filter.return_value = locator
+                locator.evaluate.return_value = {"value": "GDANSK EXPRESS"}
+                date.last = date
+                date.evaluate.return_value = {"min": "2026-07-28", "max": "2027-01-24"}
+                page.locator.side_effect = lambda selector: date if selector == 'input[name="vesselSchedulesDatePicker"]:visible' else locator
+                with patch("playwright.sync_api.sync_playwright") as automation:
+                    browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
+                    browser.new_page.return_value = page
+                    with self.assertRaisesRegex(ValueError, f"Suchdatum {start}.*2026-07-28 bis 2027-01-24"):
+                        fetch_schedule("GDANSK EXPRESS", start, headed=True)
+                    date.fill.assert_not_called()
+                    page.get_by_text.assert_not_called()
+                    page.wait_for_url.assert_not_called()
+                    browser.close.assert_called_once()
+
+    def test_live_browser_accepts_source_range_boundaries_and_missing_bounds(self):
+        for start, bounds in (
+            ("2026-07-28", {"min": "2026-07-28", "max": "2027-01-24"}),
+            ("2027-01-24", {"min": "2026-07-28", "max": "2027-01-24"}),
+            ("2026-01-03", {"min": None, "max": None}),
+        ):
+            with self.subTest(start=start):
+                page, locator, date = MagicMock(), MagicMock(), MagicMock()
+                locator.last = locator.first = locator
+                locator.filter.return_value = locator
+                locator.evaluate.return_value = {"value": "GDANSK EXPRESS"}
+                date.last = date
+                date.evaluate.return_value = bounds
+                page.locator.side_effect = lambda selector: date if selector == 'input[name="vesselSchedulesDatePicker"]:visible' else locator
+                with patch("playwright.sync_api.sync_playwright") as automation:
+                    browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
+                    browser.new_page.return_value = page
+                    fetch_schedule("GDANSK EXPRESS", start)
+                    year, month, day = start.split("-")
+                    date.fill.assert_called_once_with(f"{day}/{month}/{year}")
+                    page.wait_for_url.assert_called_once()
+                    browser.close.assert_called_once()
+
+    def test_live_browser_reports_missing_suggestion_and_closes_without_search(self):
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+        page, vessel, option, status = [MagicMock() for _ in range(4)]
+        vessel.last = vessel
+        option.filter.return_value.first = option
+        option.wait_for.side_effect = PlaywrightTimeoutError("Timeout 20000ms exceeded")
+        status.all_text_contents.return_value = ["No suggestions found"]
+        page.locator.side_effect = lambda selector: vessel if selector == 'input[name="vesselName"]:visible' else option if selector.startswith("mc-option") else status
+        with patch("playwright.sync_api.sync_playwright") as automation:
+            browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
+            browser.new_page.return_value = page
+            with self.assertRaisesRegex(ValueError, "20 Sekunden.*No suggestions found"):
+                fetch_schedule("MATHILDE MAERSK", "2027-01-01")
+            vessel.fill.assert_called_once_with("MATHILDE MAERSK")
+            option.wait_for.assert_called_once_with(state="visible", timeout=20000)
+            option.click.assert_not_called()
+            page.get_by_text.assert_not_called()
+            browser.close.assert_called_once()
+
+    def test_live_browser_rejects_unconfirmed_selection(self):
+        page, locator = MagicMock(), MagicMock()
+        locator.last = locator.first = locator
+        locator.filter.return_value = locator
+        locator.evaluate.return_value = None
+        page.locator.return_value = locator
+        with patch("playwright.sync_api.sync_playwright") as automation:
+            browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
+            browser.new_page.return_value = page
+            with self.assertRaisesRegex(ValueError, "nicht als Auswahl uebernommen"):
+                fetch_schedule("MATHILDE MAERSK", "2027-01-01")
+            page.get_by_text.assert_not_called()
+            browser.close.assert_called_once()
+
+    def test_live_browser_reports_navigation_timeout_without_querying_dom(self):
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+        page = MagicMock()
+        page.goto.side_effect = PlaywrightTimeoutError("Timeout 20000ms exceeded")
+        with patch("playwright.sync_api.sync_playwright") as automation:
+            browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
+            browser.new_page.return_value = page
+            with self.assertRaisesRegex(ValueError, "Phase: Seite laden.*keine Seitennavigation"):
+                fetch_schedule("MATHILDE MAERSK", "2027-01-01")
+            page.locator.assert_not_called()
+            browser.close.assert_called_once()
+
+    def test_live_browser_reports_http_error_without_waiting_for_form(self):
+        page = MagicMock()
+        page.goto.return_value.ok = False
+        page.goto.return_value.status = 503
+        with patch("playwright.sync_api.sync_playwright") as automation:
+            browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
+            browser.new_page.return_value = page
+            with self.assertRaisesRegex(ValueError, "HTTP 503"):
+                fetch_schedule("MATHILDE MAERSK", "2027-01-01")
+            page.locator.assert_not_called()
+            browser.close.assert_called_once()
+
+    def test_live_browser_reports_missing_form_without_starting_search(self):
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+        page, vessel = MagicMock(), MagicMock()
+        vessel.last = vessel
+        vessel.wait_for.side_effect = PlaywrightTimeoutError("Timeout 20000ms exceeded")
+        page.locator.return_value = vessel
+        with patch("playwright.sync_api.sync_playwright") as automation:
+            browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
+            browser.new_page.return_value = page
+            with self.assertRaisesRegex(ValueError, "Phase: Suchformular laden.*Suchformular ist nach 20 Sekunden nicht sichtbar"):
+                fetch_schedule("MATHILDE MAERSK", "2027-01-01")
+            vessel.fill.assert_not_called()
+            vessel.evaluate_all.assert_not_called()
+            page.get_by_text.assert_not_called()
+            browser.close.assert_called_once()
 
     def test_live_api_runs_separate_script_without_saving(self):
         with tempfile.TemporaryDirectory() as directory:

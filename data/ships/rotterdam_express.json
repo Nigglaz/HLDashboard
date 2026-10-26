@@ -1,103 +1,15 @@
 {
   "id": "rotterdam_express",
-  "vesselName": "ROTTERDAM EXPRESS",
-  "name": "Rotterdam Express",
-  "serviceId": "NE2",
-  "voyages": {
-    "2026-10-31": {
-      "proformaId": "ne2-2026",
-      "stops": [
-        {
-          "id": "rotterdam-rotterdam",
-          "portId": "rotterdam",
-          "berth": 1,
-          "arrival": "2026-10-31T11:00",
-          "departure": "2026-11-02T00:01",
-          "transitMinutes": 0,
-          "source": {
-            "provider": "maersk",
-            "portName": "Rotterdam",
-            "terminalName": "APM 2 Terminal Maasvlakte II",
-            "arrivalVoyage": "637W",
-            "departureVoyage": "644E"
-          }
-        },
-        {
-          "id": "rotterdam-hamburg",
-          "portId": "hamburg",
-          "berth": 1,
-          "arrival": "2026-11-03T23:00",
-          "departure": "2026-11-05T10:00",
-          "transitMinutes": 2819,
-          "source": {
-            "provider": "maersk",
-            "portName": "Hamburg",
-            "terminalName": "Eurogate Container Terminal Hamburg",
-            "arrivalVoyage": "637W",
-            "departureVoyage": "644E"
-          }
-        },
-        {
-          "id": "rotterdam-antwerp",
-          "portId": "antwerp",
-          "berth": 1,
-          "arrival": "2026-11-07T06:00",
-          "departure": "2026-11-09T22:00",
-          "transitMinutes": 2640,
-          "source": {
-            "provider": "maersk",
-            "portName": "Antwerp",
-            "terminalName": "PSA Antwerp K913 Noordzee",
-            "arrivalVoyage": "637W",
-            "departureVoyage": "644E"
-          }
-        },
-        {
-          "id": "rotterdam-london",
-          "portId": "london",
-          "berth": 1,
-          "arrival": "2026-11-10T12:00",
-          "departure": "2026-11-12T23:00",
-          "transitMinutes": 840,
-          "source": {
-            "provider": "maersk",
-            "portName": "London Gateway",
-            "terminalName": "London Gateway Terminal",
-            "arrivalVoyage": "637W",
-            "departureVoyage": "644E"
-          }
-        },
-        {
-          "id": "rotterdam-tangier",
-          "portId": "tangier",
-          "berth": 1,
-          "arrival": "2026-11-17T03:00",
-          "departure": "2026-11-18T01:00",
-          "transitMinutes": 6000,
-          "source": {
-            "provider": "maersk",
-            "portName": "Port Tangier Mediterranee",
-            "terminalName": "TC3 Tanger Alliance Terminal",
-            "arrivalVoyage": "637W",
-            "departureVoyage": "644E"
-          }
-        }
-      ],
-      "import": {
-        "source": "maersk",
-        "vesselName": "ROTTERDAM EXPRESS",
-        "fetchedAt": "2026-10-25T21:33:46+00:00",
-        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=II9&fromDate=2026-10-25",
-        "timeBasis": "unconfirmed"
-      }
-    }
-  },
   "maxSpeedKnots": 20,
+  "name": "Rotterdam Express",
   "proformaAssignments": [
     {
+      "offsetWeeks": 3,
       "proformaId": "ne2-2026",
-      "validFrom": "2026-01-01",
-      "offsetWeeks": 3
+      "validFrom": "2026-01-01"
     }
-  ]
+  ],
+  "serviceId": "NE2",
+  "vesselName": "ROTTERDAM EXPRESS",
+  "voyages": {}
 }

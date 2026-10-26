@@ -1,0 +1,50 @@
+{
+  "ports": [
+    {"id": "rotterdam", "name": "Rotterdam MV2", "berths": 2, "distancesNm": {"hamburg": 100, "antwerp": 100, "london": 100, "tangier": 100, "bremerhaven": 100, "algeciras": 100}},
+    {"id": "hamburg", "name": "Hamburg Eurogate", "berths": 6, "distancesNm": {"antwerp": 100, "london": 100, "tangier": 100, "bremerhaven": 100, "algeciras": 100}},
+    {"id": "antwerp", "name": "Antwerpen", "berths": 1, "distancesNm": {"london": 100, "tangier": 100, "bremerhaven": 100, "algeciras": 100}},
+    {"id": "london", "name": "London", "berths": 4, "distancesNm": {"tangier": 100, "bremerhaven": 100, "algeciras": 100}},
+    {"id": "tangier", "name": "Tangier TC3", "berths": 2, "distancesNm": {"bremerhaven": 100, "algeciras": 100}},
+    {"id": "bremerhaven", "name": "Bremerhaven", "berths": 2, "distancesNm": {"algeciras": 100}},
+    {"id": "algeciras", "name": "Algeciras", "berths": 2, "distancesNm": {}}
+  ],
+  "services": [
+    {
+      "id": "NE2", "color": "#347cd0", "repeatWeeks": 14,
+      "defaultBerths": {"rotterdam": 1, "hamburg": 1, "antwerp": 1, "london": 1, "tangier": 1},
+      "proformas": [{
+        "id": "ne2-2027", "name": "NE2/2027", "validFrom": "2027-01-01", "repeatWeeks": 14,
+        "stops": [
+          {"id": "busan-rotterdam", "portId": "rotterdam", "berth": 1, "arrival": "2027-01-16T11:00", "departure": "2027-01-18T00:00", "transitMinutes": 0},
+          {"id": "busan-hamburg", "portId": "hamburg", "berth": 1, "arrival": "2027-01-19T13:00", "departure": "2027-01-21T10:00", "transitMinutes": 2220},
+          {"id": "busan-antwerp", "portId": "antwerp", "berth": 1, "arrival": "2027-01-23T06:00", "departure": "2027-01-25T23:00", "transitMinutes": 2640},
+          {"id": "busan-london", "portId": "london", "berth": 1, "arrival": "2027-01-26T12:00", "departure": "2027-01-28T23:00", "transitMinutes": 780},
+          {"id": "busan-tangier", "portId": "tangier", "berth": 1, "arrival": "2027-02-02T03:00", "departure": "2027-02-03T01:00", "transitMinutes": 6000}
+        ]
+      }]
+    },
+    {
+      "id": "NE4", "color": "#278f7d", "repeatWeeks": 14,
+      "defaultBerths": {"london": 3, "bremerhaven": 1, "hamburg": 2, "rotterdam": 2, "algeciras": 1},
+      "proformas": [{
+        "id": "ne4-2027", "name": "NE4/2027", "validFrom": "2027-01-01", "repeatWeeks": 14,
+        "stops": [
+          {"id": "mathilde-london", "portId": "london", "berth": 3, "arrival": "2027-01-16T14:00", "departure": "2027-01-18T04:00", "transitMinutes": 0},
+          {"id": "mathilde-bremerhaven", "portId": "bremerhaven", "berth": 1, "arrival": "2027-01-20T06:00", "departure": "2027-01-21T22:00", "transitMinutes": 3000},
+          {"id": "mathilde-hamburg", "portId": "hamburg", "berth": 2, "arrival": "2027-01-22T15:00", "departure": "2027-01-24T18:00", "transitMinutes": 1020},
+          {"id": "mathilde-rotterdam", "portId": "rotterdam", "berth": 2, "arrival": "2027-01-26T11:00", "departure": "2027-01-27T12:00", "transitMinutes": 2460},
+          {"id": "mathilde-algeciras", "portId": "algeciras", "berth": 1, "arrival": "2027-02-01T20:00", "departure": "2027-02-02T14:00", "transitMinutes": 7680}
+        ]
+      }]
+    }
+  ],
+  "ships": [
+    {"id": "busan", "name": "Busan Express", "serviceId": "NE2", "maxSpeedKnots": 20, "proformaAssignments": [{"proformaId": "ne2-2027", "validFrom": "2027-01-01", "offsetWeeks": 0}], "voyages": {}},
+    {"id": "berlin", "name": "Berlin Express", "serviceId": "NE2", "maxSpeedKnots": 20, "proformaAssignments": [{"proformaId": "ne2-2027", "validFrom": "2027-01-01", "offsetWeeks": 1}], "voyages": {}},
+    {"id": "gdansk", "name": "Gdansk Express", "serviceId": "NE2", "maxSpeedKnots": 20, "proformaAssignments": [{"proformaId": "ne2-2027", "validFrom": "2027-01-01", "offsetWeeks": 2}], "voyages": {}},
+    {"id": "rotterdam", "name": "Rotterdam Express", "serviceId": "NE2", "maxSpeedKnots": 20, "proformaAssignments": [{"proformaId": "ne2-2027", "validFrom": "2027-01-01", "offsetWeeks": 3}], "voyages": {}},
+    {"id": "hamburg", "name": "Hamburg Express", "serviceId": "NE2", "maxSpeedKnots": 20, "proformaAssignments": [{"proformaId": "ne2-2027", "validFrom": "2027-01-01", "offsetWeeks": 4}], "voyages": {}},
+    {"id": "genova", "name": "Genova Express", "serviceId": "NE2", "maxSpeedKnots": 20, "proformaAssignments": [{"proformaId": "ne2-2027", "validFrom": "2027-01-01", "offsetWeeks": 5}], "voyages": {}},
+    {"id": "mathilde", "name": "Mathilde Maersk", "serviceId": "NE4", "maxSpeedKnots": 20, "proformaAssignments": [{"proformaId": "ne4-2027", "validFrom": "2027-01-01", "offsetWeeks": 0}], "voyages": {}}
+  ]
+}

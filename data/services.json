@@ -26,7 +26,7 @@
           },
           {
             "arrival": "2027-01-19T13:00",
-            "berth": 1,
+            "berth": 2,
             "departure": "2027-01-21T10:00",
             "id": "busan-hamburg",
             "portId": "hamburg",

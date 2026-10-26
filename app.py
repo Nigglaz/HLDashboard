@@ -10,73 +10,15 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
-from planning import change_rotation, conflicts, insert_adhoc_stop, migrate_service_proformas, migrate_ship, resolve_voyage, validate_service_proforma, validate_ship, validate_stations
+from planning import change_rotation, conflicts, insert_adhoc_stop, migrate_service_proformas, resolve_voyage, validate_service_proforma, validate_ship, validate_stations
 from schedule_import import parse_maersk_text, prepare_import, prepare_service_import, vessel_identifier, vessel_key
 from master_data import rename_port_references, update_port_metadata, update_ship_metadata
+from auth import register_auth
 
 
-PORTS = [
-    {"id": "rotterdam", "name": "Rotterdam MV2", "berths": 2},
-    {"id": "hamburg", "name": "Hamburg Eurogate", "berths": 6},
-    {"id": "antwerp", "name": "Antwerpen", "berths": 1},
-    {"id": "london", "name": "London", "berths": 4},
-    {"id": "tangier", "name": "Tangier TC3", "berths": 2},
-    {"id": "bremerhaven", "name": "Bremerhaven", "berths": 2},
-    {"id": "algeciras", "name": "Algeciras", "berths": 2},
-]
-
-SERVICES = [
-    {"id": "NE2", "color": "#347cd0", "repeatWeeks": 14, "defaultBerths": {port: 1 for port in ("rotterdam", "hamburg", "antwerp", "london", "tangier")}, "proformas": []},
-    {"id": "NE4", "color": "#278f7d", "repeatWeeks": 14, "defaultBerths": {"london": 3, "bremerhaven": 1, "hamburg": 2, "rotterdam": 2, "algeciras": 1}, "proformas": []},
-]
-
-
-def mathilde_schedule():
-    dates = [("london", "2027-01-16T14:00", "2027-01-18T04:00"),
-             ("bremerhaven", "2027-01-20T06:00", "2027-01-21T22:00"),
-             ("hamburg", "2027-01-22T15:00", "2027-01-24T18:00"),
-             ("rotterdam", "2027-01-26T11:00", "2027-01-27T12:00"),
-             ("algeciras", "2027-02-01T20:00", "2027-02-02T14:00")]
-    stops = []
-    for port, arrival, departure in dates:
-        transit = max(0, int((datetime.fromisoformat(arrival) - datetime.fromisoformat(stops[-1]["departure"])).total_seconds() / 60)) if stops else 0
-        stops.append({"id": f"mathilde-{port}", "portId": port, "berth": SERVICES[1]["defaultBerths"][port],
-                      "arrival": arrival, "departure": departure, "transitMinutes": transit})
-    return {"id": "mathilde", "name": "Mathilde Maersk", "serviceId": "NE4", "stops": stops}
-
-
-def example_schedule():
-    dates = [
-        ("2027-01-16T11:00", "2027-01-18T00:00"),
-        ("2027-01-19T13:00", "2027-01-21T10:00"),
-        ("2027-01-23T06:00", "2027-01-25T23:00"),
-        ("2027-01-26T12:00", "2027-01-28T23:00"),
-        ("2027-02-02T03:00", "2027-02-03T01:00"),
-    ]
-    ships = []
-    for index, name in enumerate(["Busan", "Berlin", "Gdansk", "Rotterdam", "Hamburg", "Genova"]):
-        stops = []
-        for position, (port, dates_pair) in enumerate(zip(PORTS, dates)):
-            arrival, departure = [datetime.fromisoformat(value) + timedelta(days=7 * index) for value in dates_pair]
-            transit = 0 if not position else int((arrival - datetime.fromisoformat(stops[-1]["departure"])).total_seconds() / 60)
-            stops.append({"id": f"{name.lower()}-{port['id']}", "portId": port["id"],
-                          "berth": index % port["berths"] + 1,
-                          "arrival": arrival.isoformat(timespec="minutes"),
-                          "departure": departure.isoformat(timespec="minutes"), "transitMinutes": transit})
-        for stop in stops:
-            stop["berth"] = 1
-        ships.append({"id": name.lower(), "name": f"{name} Express", "serviceId": "NE2", "stops": stops})
-    ships.append(mathilde_schedule())
-    for ship in ships:
-        ship["recurrenceStops"] = deepcopy(ship["stops"])
-        ship["voyageOverrides"] = {}
-    return {"ships": ships}
-
-
-def create_app(data_root=None):
+def create_app(data_root=None, auth_root=None):
     app = Flask(__name__)
     root = Path(data_root) if data_root else Path(__file__).parent / "data"
-    root.mkdir(parents=True, exist_ok=True)
     lock = threading.Lock()
     live_import_lock = threading.Lock()
 
@@ -88,23 +30,10 @@ def create_app(data_root=None):
         temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False), encoding="utf-8")
         os.replace(temporary, path)
 
-    initialize_examples = not (root / "ships").exists()
-    if not (root / "ports.json").exists():
-        write(root / "ports.json", PORTS)
-
     def load(name):
         return json.loads((root / name).read_text(encoding="utf-8"))
 
-    ports = load("ports.json")
-    if not (root / "services.json").exists():
-        write(root / "services.json", SERVICES)
-    (root / "ships").mkdir(exist_ok=True)
-    if initialize_examples:
-        for example in example_schedule()["ships"]:
-            ship = migrate_ship(example)
-            ship["maxSpeedKnots"] = 20
-            write(root / "ships" / f"{ship['id']}.json", ship)
-
+    load("ports.json")
     service_data = load("services.json")
     ship_paths = sorted((root / "ships").glob("*.json"))
     ship_data = [json.loads(path.read_text(encoding="utf-8")) for path in ship_paths]
@@ -135,7 +64,6 @@ def create_app(data_root=None):
                 raise ValueError(f"Ung\u00fcltige Schiffsdatei {path.name}: Der Schiffsname muss vorhanden und eindeutig sein: {unique_name}")
             vessel_names.add(unique_name)
         for ship in ships:
-            ship.setdefault("maxSpeedKnots", 20)
             try:
                 validate_ship(ship, ship, load("ports.json"), allow_rotation_conflicts=True, services=services)
             except (ValueError, KeyError, TypeError, OverflowError) as error:
@@ -149,16 +77,11 @@ def create_app(data_root=None):
 
     legacy_path = root / "navigation.json"
     legacy = load("navigation.json") if legacy_path.exists() else {}
-    for index, port in enumerate(ports):
-        distances = port.setdefault("distancesNm", {})
-        for destination in ports[index + 1:]:
-            if port["id"] not in destination.get("distancesNm", {}):
-                distances.setdefault(destination["id"], 100)
-    write(root / "ports.json", ports)
     for ship_path in (root / "ships").glob("*.json"):
         existing = json.loads(ship_path.read_text(encoding="utf-8"))
-        if "maxSpeedKnots" not in existing:
-            existing["maxSpeedKnots"] = legacy.get("maxSpeedKnotsByShip", {}).get(existing["id"], legacy.get("defaultMaxSpeedKnots", 20))
+        speed = legacy.get("maxSpeedKnotsByShip", {}).get(existing["id"], legacy.get("defaultMaxSpeedKnots"))
+        if "maxSpeedKnots" not in existing and speed is not None:
+            existing["maxSpeedKnots"] = speed
             write(ship_path, existing)
     if legacy_path.exists():
         legacy_path.unlink()
@@ -171,13 +94,15 @@ def create_app(data_root=None):
             if color is not None and (not isinstance(color, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", color)):
                 raise ValueError(f"Ung\u00fcltige Farbe f\u00fcr Dienst {service['id']}: Hexfarbe (#RRGGBB) erwartet.")
         for service_id in sorted({ship["serviceId"] for ship in schedule["ships"]} - {service["id"] for service in services}):
-            services.append({"id": service_id, "repeatWeeks": 14, "defaultBerths": {}, "proformas": []})
+            services.append({"id": service_id, "proformas": []})
         return {**schedule, "ports": load("ports.json"), "services": services, "dataSignature": data_signature(schedule)}
 
     @app.errorhandler(ValueError)
     @app.errorhandler(OSError)
     def data_error(error):
         return jsonify(error=f"JSON-Daten konnten nicht geladen werden: {error}"), 503
+
+    register_auth(app, auth_root if auth_root is not None else app.instance_path)
 
     @app.get("/")
     def index():
@@ -321,7 +246,7 @@ def create_app(data_root=None):
                 ship = deepcopy(payload["ship"])
                 original = originals[ship_id]
                 validate_ship(ship, original, load("ports.json"), services=services)
-                if ship.get("maxSpeedKnots", 20) != original["maxSpeedKnots"]:
+                if ship.get("maxSpeedKnots") != original["maxSpeedKnots"]:
                     raise ValueError("Die Maximalgeschwindigkeit bitte in der Schiffs-JSON bearbeiten.")
                 if ship.get("proformaAssignments") != original.get("proformaAssignments") or payload.get("mode", "planning") != "planning":
                     raise ValueError("Proforma-Zuordnungen werden im Flotten-Tab bearbeitet.")
@@ -341,8 +266,12 @@ def create_app(data_root=None):
             write(root / "ships" / f"{ship_id}.json", ship)
             return jsonify(response_plan(read_schedule()))
 
-    @app.post("/api/import/maersk/live")
-    def import_maersk_live():
+    @app.post("/api/import/<source>/live")
+    def import_live(source):
+        sources = {"maersk": "Maersk", "hapag": "Hapag-Lloyd"}
+        if source not in sources:
+            return jsonify(error="Unbekannte Importquelle."), 404
+        label = sources[source]
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             return jsonify(error="JSON erwartet."), 400
@@ -360,18 +289,17 @@ def create_app(data_root=None):
         if not live_import_lock.acquire(blocking=False):
             return jsonify(error="Ein Live-Import l\u00e4uft bereits."), 409
         try:
-            command = [sys.executable, str(Path(__file__).parent / "import_maersk.py"), "--vessel", name, "--from", start, "--to", end]
-            if payload.get("headed", True):
-                command.append("--headed")
+            command = [sys.executable, str(Path(__file__).parent / f"import_{source}.py"), "--vessel", name, "--from", start, "--to", end]
+            command.append("--headed")
             result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", timeout=180, cwd=Path(__file__).parent)
             if result.returncode:
-                return jsonify(error=result.stderr.strip()[-5000:] or "Maersk-Live-Abruf fehlgeschlagen."), 502
+                return jsonify(error=result.stderr.strip()[-5000:] or f"{label}-Live-Abruf fehlgeschlagen."), 502
             packet = json.loads(result.stdout)
-            if packet.get("source") != "maersk" or packet.get("vesselName") != name or not packet.get("calls"):
+            if packet.get("source") != source or packet.get("vesselName") != name or not packet.get("calls"):
                 raise ValueError("Das Skript hat kein passendes Importergebnis geliefert.")
             return jsonify(packet=packet)
         except subprocess.TimeoutExpired:
-            return jsonify(error="Der Maersk-Abruf hat das Zeitlimit von drei Minuten \u00fcberschritten."), 504
+            return jsonify(error=f"Der {label}-Abruf hat das Zeitlimit von drei Minuten \u00fcberschritten."), 504
         except (OSError, ValueError) as error:
             return jsonify(error=str(error)), 502
         finally:
@@ -380,7 +308,9 @@ def create_app(data_root=None):
     def import_preview(payload, plan):
         packet = payload.get("packet")
         if packet is None:
-            packet = parse_maersk_text(payload.get("text", ""), payload.get("vesselName", "MATHILDE MAERSK"), payload.get("fromDate", "2027-01-01"), payload.get("toDate", "2027-03-01"))
+            if not all(payload.get(field) for field in ("vesselName", "fromDate", "toDate")):
+                raise ValueError("Schiffsname und Importzeitraum sind erforderlich.")
+            packet = parse_maersk_text(payload.get("text", ""), payload["vesselName"], payload["fromDate"], payload["toDate"])
         if isinstance(packet, dict) and "packets" in packet:
             if payload.get("serviceId") and payload["serviceId"] != packet.get("serviceId"):
                 raise ValueError("Importdaten gehoeren nicht zum ausgewaehlten Dienst.")
@@ -524,7 +454,12 @@ def create_app(data_root=None):
                 service = next((service for service in load("services.json") if service["id"] == ship["serviceId"]), {})
                 port_id = payload["portId"]
                 berth = service.get("defaultBerths", {}).get(port_id, 1)
-                reordered = insert_adhoc_stop(stops, payload["afterStopId"], port_id, current_ports, berth)
+                if ("beforeStopId" in payload) == ("afterStopId" in payload):
+                    raise ValueError("Genau eine Einf\u00fcgeposition angeben.")
+                if "beforeStopId" in payload and not isinstance(payload["beforeStopId"], str):
+                    raise ValueError("Ung\u00fcltiger folgender Aufenthalt.")
+                reordered = insert_adhoc_stop(stops, payload.get("afterStopId"), port_id, current_ports, berth,
+                                              before_stop_id=payload.get("beforeStopId"))
             except (KeyError, TypeError, ValueError, OverflowError) as error:
                 return jsonify(error=str(error)), 400
             return jsonify(stops=reordered, voyageDate=key, proformaId=voyage["proformaId"])

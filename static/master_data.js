@@ -33,12 +33,12 @@ function renderMasterPanel(kind) {
   $('#master-vessel').value = record?.vesselName || (fleet ? record?.name || '' : '');
   $('#master-service').value = fleet ? record?.serviceId || saved.services[0]?.id || '' : '';
   $('#master-services').innerHTML = saved.services.map((service) => `<option value="${escapeHtml(service.id)}"></option>`).join('');
-  $('#master-speed').value = record?.maxSpeedKnots ?? 20;
-  $('#master-vessel').required = $('#master-service').required = fleet;
+  $('#master-speed').value = record?.maxSpeedKnots ?? '';
+  $('#master-vessel').required = $('#master-service').required = $('#master-speed').required = fleet;
   $('#master-berths').required = !fleet;
-  $('#master-berths').value = record?.berths || 2;
+  $('#master-berths').value = record?.berths ?? '';
   $('#master-aliases').value = JSON.stringify(record?.aliases || {}, null, 2);
-  $('#master-distances').innerHTML = fleet ? '' : saved.ports.filter((port) => port.id !== record?.id).map((port) => `<label>${escapeHtml(port.name)} <small>${escapeHtml(port.id)}</small><input type="number" min="0" step="0.1" data-distance-port="${escapeHtml(port.id)}" value="${record?.distancesNm?.[port.id] ?? port.distancesNm?.[record?.id] ?? 100}" required></label>`).join('');
+  $('#master-distances').innerHTML = fleet ? '' : saved.ports.filter((port) => port.id !== record?.id).map((port) => `<label>${escapeHtml(port.name)} <small>${escapeHtml(port.id)}</small><input type="number" min="0" step="0.1" data-distance-port="${escapeHtml(port.id)}" value="${record?.distancesNm?.[port.id] ?? port.distancesNm?.[record?.id] ?? ''}" required></label>`).join('');
   renderShipAssignments(fleet ? record : null);
   $('#master-plan-info').textContent = fleet ? record ? `${record.proformaAssignments.length} Proforma-Zuordnungen / ${Object.keys(record.voyages).length} gespeicherte Reisen` : 'Neues Schiff ohne Fahrplan' : '';
   $('#master-error').textContent = dirtyCount() ? 'Offene Kalenderentw\u00fcrfe zuerst \u00fcbernehmen oder verwerfen.' : '';
@@ -108,7 +108,7 @@ $('#master-form').addEventListener('submit', async (event) => {
         if (Array.isArray(config.selectedPorts)) config.selectedPorts = config.selectedPorts.map(remap);
         if (Array.isArray(config.hiddenBerths)) config.hiddenBerths = config.hiddenBerths.map(remapBerth);
       }
-      try { localStorage.setItem('harborline-views', JSON.stringify(views)); }
+      try { localStorage.setItem(storageKey('harborline-views'), JSON.stringify(views)); }
       catch { notify('Hafen-ID ge\u00e4ndert; Browseransichten konnten nicht gespeichert werden.', true); }
       for (const choice of Object.values(importChoices)) if (choice.portId === from) choice.portId = to;
       importPreview = null;

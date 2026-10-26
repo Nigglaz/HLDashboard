@@ -138,7 +138,7 @@ def prepare_import(plan, packet, choices=None, voyage_date=None, from_date=None,
     preserved = [deepcopy(stop) for stop in voyage["stops"] if not in_window(stop["arrival"])]
     old_by_port = {}
     for stop in voyage["stops"]:
-        if in_window(stop["arrival"]):
+        if in_window(stop["arrival"]) or voyage.get("source") == "proforma":
             old_by_port.setdefault(stop["portId"], []).append(stop)
     stops, changes, used = [], [], set()
     for index, call in enumerate(selected):
@@ -159,6 +159,7 @@ def prepare_import(plan, packet, choices=None, voyage_date=None, from_date=None,
     for old in voyage["stops"]:
         if old["id"] not in used and in_window(old["arrival"]):
             changes.append({"status": "removed", "portId": old["portId"], "before": old, "after": None})
+    preserved = [stop for stop in preserved if stop["id"] not in used]
     stops = sorted([*preserved, *stops], key=lambda stop: stop["arrival"])
     preserved_ids = {stop["id"] for stop in preserved}
     for index, stop in enumerate(stops):

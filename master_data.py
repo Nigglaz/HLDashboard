@@ -17,7 +17,7 @@ def update_ship_metadata(payload, original, ships):
     name = str(payload.get("name", "")).strip()
     unique_name = vessel_identifier(payload.get("vesselName", ""))
     service = str(payload.get("serviceId", "")).strip().upper()
-    speed = payload.get("maxSpeedKnots", 20)
+    speed = payload.get("maxSpeedKnots", original.get("maxSpeedKnots") if original else None)
     if not name or len(name) > 120 or not unique_name or len(unique_name) > 120:
         raise ValueError("Anzeigename und eindeutiger Schiffsname sind erforderlich (maximal 120 Zeichen).")
     if not re.fullmatch(r"[A-Z0-9_-]{1,40}", service):

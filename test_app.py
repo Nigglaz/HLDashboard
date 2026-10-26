@@ -5,8 +5,10 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from app import create_app
+from app import create_app as create_data_app
 from planning import resolve_voyage
+from auth import write_users
+from test_support import AuthenticatedClient, TEST_EMAIL, TEST_HASH, create_test_app as create_app
 
 
 class PlanTests(unittest.TestCase):
@@ -90,6 +92,63 @@ class PlanTests(unittest.TestCase):
         client = create_app(self.directory.name).test_client()
         self.assertEqual(client.get("/api/plan").get_json()["ships"], [])
 
+    def test_missing_required_json_does_not_create_example_data(self):
+        for missing in ("ports.json", "services.json"):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                remaining = "services.json" if missing == "ports.json" else "ports.json"
+                (root / remaining).write_text("[]", encoding="utf-8")
+                with self.assertRaises(FileNotFoundError):
+                    create_data_app(directory)
+                self.assertEqual({path.name for path in root.iterdir()}, {remaining})
+
+    def test_missing_ships_directory_stays_empty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("ports", "services"):
+                (root / f"{name}.json").write_text("[]", encoding="utf-8")
+            app = create_data_app(directory, auth_root=root / "auth")
+            write_users(root / "auth/users.json", [{"email": TEST_EMAIL, "passwordHash": TEST_HASH}])
+            app.test_client_class = AuthenticatedClient
+            plan = app.test_client().get("/api/plan").get_json()
+            self.assertEqual(plan["ships"], [])
+            self.assertEqual(plan["ports"], [])
+            self.assertEqual(plan["services"], [])
+            self.assertFalse((root / "ships").exists())
+
+    def test_missing_speed_or_route_distance_returns_explicit_error(self):
+        root = Path(self.directory.name)
+        ship_path = root / "ships/busan.json"
+        original_ship = ship_path.read_text(encoding="utf-8")
+        ship = json.loads(original_ship)
+        del ship["maxSpeedKnots"]
+        ship_path.write_text(json.dumps(ship), encoding="utf-8")
+        response = self.client.get("/api/plan")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("Maximalgeschwindigkeit", response.get_json()["error"])
+        self.assertNotIn("maxSpeedKnots", json.loads(ship_path.read_text(encoding="utf-8")))
+        ship_path.write_text(original_ship, encoding="utf-8")
+        ports_path = root / "ports.json"
+        ports = deepcopy(self.plan["ports"])
+        del ports[0]["distancesNm"]["hamburg"]
+        ports_path.write_text(json.dumps(ports), encoding="utf-8")
+        restarted = create_app(root).test_client()
+        response = restarted.get("/api/plan")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("Entfernung", response.get_json()["error"])
+        self.assertEqual(json.loads(ports_path.read_text(encoding="utf-8")), ports)
+
+    def test_new_ship_requires_explicit_speed(self):
+        payload = {"dataSignature": self.plan["dataSignature"], "name": "New Ship", "vesselName": "NEW SHIP", "serviceId": "NE4"}
+        response = self.client.post("/api/fleet", json=payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Maximalgeschwindigkeit", response.get_json()["error"])
+
+    def test_text_import_requires_ship_and_dates(self):
+        response = self.client.post("/api/import/preview", json={"text": "Arrival"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Schiffsname und Importzeitraum", response.get_json()["error"])
+
     def test_create_unscheduled_ship_and_edit_metadata_without_touching_plans(self):
         payload = {"dataSignature": self.plan["dataSignature"], "id": "new-ship", "name": "New Ship", "vesselName": "NEW SHIP", "serviceId": "NE4", "maxSpeedKnots": 18}
         result = self.client.post("/api/fleet", json=payload)
@@ -149,6 +208,9 @@ class PlanTests(unittest.TestCase):
         payload = {**old, "dataSignature": self.plan["dataSignature"], "berths": 1}
         self.assertEqual(self.client.put("/api/ports/hamburg", json=payload).status_code, 400)
         payload.update(berths=6, name="Hamburg neu", distancesNm={"rotterdam": 150})
+        self.assertEqual(self.client.put("/api/ports/hamburg", json=payload).status_code, 400)
+        self.assertEqual(self.client.get("/api/plan").get_json(), self.plan)
+        payload["distancesNm"].update(old["distancesNm"])
         changed = self.client.put("/api/ports/hamburg", json=payload)
         self.assertEqual(changed.status_code, 200)
         ports = changed.get_json()["ports"]
@@ -270,6 +332,22 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(updated["proformaAssignments"], ship["proformaAssignments"])
         self.assertEqual(len(resolve_voyage(updated, "2027-04-24", saved.get_json()["services"])["stops"]), 5)
 
+    def test_adhoc_before_target_including_first_and_last(self):
+        stops = self.plan["services"][0]["proformas"][0]["stops"]
+        for index in [0, 1, len(stops) - 1]:
+            response = self.client.post("/api/ships/busan/adhoc-stop", json={"dataSignature": self.plan["dataSignature"], "voyageDate": "2027-01-16", "stops": stops, "beforeStopId": stops[index]["id"], "portId": "bremerhaven"})
+            self.assertEqual(response.status_code, 200)
+            result = response.get_json()["stops"]
+            self.assertTrue(result[index]["adhoc"])
+            self.assertEqual(result[index + 1]["id"], stops[index]["id"])
+        self.assertEqual(self.client.get("/api/plan").get_json(), self.plan)
+
+    def test_adhoc_rejects_missing_or_ambiguous_position(self):
+        stops = self.plan["services"][0]["proformas"][0]["stops"]
+        for position in [{}, {"beforeStopId": None}, {"beforeStopId": "missing"}, {"beforeStopId": stops[1]["id"], "afterStopId": stops[0]["id"]}]:
+            response = self.client.post("/api/ships/busan/adhoc-stop", json={"dataSignature": self.plan["dataSignature"], "voyageDate": "2027-01-16", "stops": stops, "portId": "bremerhaven", **position})
+            self.assertEqual(response.status_code, 400)
+
     def test_overlapping_adhoc_is_previewed_but_cannot_be_saved(self):
         stops = self.plan["services"][0]["proformas"][0]["stops"]
         response = self.client.post("/api/ships/busan/adhoc-stop", json={"dataSignature": self.plan["dataSignature"], "voyageDate": "2027-01-16", "stops": stops, "afterStopId": stops[0]["id"], "portId": "bremerhaven"})
@@ -354,7 +432,7 @@ class PlanTests(unittest.TestCase):
         stale = {"dataSignature": self.plan["dataSignature"], "ship": self.plan["ships"][0]}
         self.assertEqual(self.client.put("/api/ships/busan/plan", json=stale).status_code, 409)
 
-    def test_navigation_migration_preserves_speed_and_uses_100_nm(self):
+    def test_navigation_migration_preserves_json_speed_and_distances(self):
         root = Path(self.directory.name)
         ship = deepcopy(self.plan["ships"][0])
         del ship["maxSpeedKnots"]
