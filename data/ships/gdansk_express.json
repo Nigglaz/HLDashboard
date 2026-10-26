@@ -19,8 +19,8 @@
           "id": "busan-rotterdam",
           "portId": "rotterdam",
           "berth": 1,
-          "arrival": "2026-10-26T15:00",
-          "departure": "2026-10-28T20:00",
+          "arrival": "2026-10-26T15:45",
+          "departure": "2026-10-28T16:00",
           "transitMinutes": 0,
           "source": {
             "provider": "maersk",
@@ -36,7 +36,7 @@
           "berth": 2,
           "arrival": "2026-10-30T09:00",
           "departure": "2026-11-01T00:01",
-          "transitMinutes": 2220,
+          "transitMinutes": 2460,
           "source": {
             "provider": "maersk",
             "portName": "Hamburg",
@@ -94,7 +94,7 @@
       "import": {
         "source": "maersk",
         "vesselName": "GDANSK EXPRESS",
-        "fetchedAt": "2026-10-26T11:12:27+00:00",
+        "fetchedAt": "2026-10-26T18:09:17+00:00",
         "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=IF3&fromDate=2026-10-26",
         "timeBasis": "unconfirmed",
         "fromDate": "2026-10-26",

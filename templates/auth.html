@@ -5,9 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PHOCA | {{ 'Profil' if profile else 'Anmelden' }}</title>
   <link rel="icon" type="image/png" href="{{ url_for('phoca_logo') }}">
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
 </head>
 <body class="auth-page">
+  <button class="button icon theme-toggle" type="button" data-theme-toggle aria-label="Dunkler Modus" aria-pressed="false" title="Dunklen Modus aktivieren"><span class="theme-icon-fallback" aria-hidden="true"></span></button>
   <main class="auth-card">
     <img class="auth-logo" src="{{ url_for('phoca_logo') }}" alt="PHOCA">
     <h1>{{ 'Profil' if profile else 'Anmelden' }}</h1>

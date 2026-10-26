@@ -79,8 +79,16 @@ def fetch_schedule(vessel_name, from_date, to_date, browser_channel=None, headed
             except PlaywrightTimeoutError as error:
                 content = page.locator("body").inner_text(timeout=3000)
                 if re.search(r"Security Check|checking your browser|Just a moment|Captcha", content, re.I):
-                    raise ValueError("Hapag-Lloyd blockiert den Abruf durch eine Browser-Sicherheitspruefung. Diese wird nicht umgangen. Bitte die Website auf diesem Rechner im normalen Browser pruefen oder eine gespeicherte Hapag-Import-JSON laden.") from error
-                raise ValueError("Die Hapag-Schiffsauswahl ist nach 20 Sekunden nicht sichtbar.") from error
+                    if not headed:
+                        raise ValueError("Hapag-Lloyd fordert eine Browser-Sicherheitspruefung. Bitte mit sichtbarem Browser erneut abrufen und das CAPTCHA dort selbst bestaetigen.") from error
+                    stage = "Manuelle Sicherheitspruefung im Browser (bis zu 2 Minuten)"
+                    print("Bitte die Hapag-Sicherheitspruefung im geoeffneten Browser selbst bestaetigen. Der Import wartet bis zu 2 Minuten und setzt danach automatisch fort.", file=sys.stderr, flush=True)
+                    try:
+                        form.locator('input[type="text"]').wait_for(state="visible", timeout=120000)
+                    except PlaywrightTimeoutError as challenge_error:
+                        raise ValueError("Die manuelle Sicherheitspruefung wurde innerhalb von 2 Minuten nicht abgeschlossen oder Hapag hat den Browser weiterhin blockiert. Bitte erneut abrufen oder eine gespeicherte Hapag-Import-JSON laden.") from challenge_error
+                else:
+                    raise ValueError("Die Hapag-Schiffsauswahl ist nach 20 Sekunden nicht sichtbar.") from error
             stage = "Schiff auswaehlen"
             form.locator(".x-form-arrow-trigger").click()
             page.locator(".x-combo-list-item:visible").first.wait_for(state="visible")

@@ -2,42 +2,8 @@
   "id": "busan_express",
   "maxSpeedKnots": 20,
   "name": "Busan Express",
-  "proformaAssignments": [
-    {
-      "offsetWeeks": 6,
-      "proformaId": "ne2-2026",
-      "validFrom": "2026-01-01"
-    }
-  ],
+  "proformaAssignments": [],
   "serviceId": "NE2",
   "vesselName": "BUSAN EXPRESS",
-  "voyages": {
-    "2026-10-10": {
-      "import": {
-        "fetchedAt": "2026-10-25T21:33:28+00:00",
-        "source": "maersk",
-        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=IE8&fromDate=2026-10-25",
-        "timeBasis": "unconfirmed",
-        "vesselName": "BUSAN EXPRESS"
-      },
-      "proformaId": "ne2-2026",
-      "stops": [
-        {
-          "arrival": "2026-11-01T05:00",
-          "berth": 1,
-          "departure": "2026-11-02T02:00",
-          "id": "busan-tangier",
-          "portId": "tangier",
-          "source": {
-            "arrivalVoyage": "633W",
-            "departureVoyage": "641E",
-            "portName": "Port Tangier Mediterranee",
-            "provider": "maersk",
-            "terminalName": "TC3 Tanger Alliance Terminal"
-          },
-          "transitMinutes": 0
-        }
-      ]
-    }
-  }
+  "voyages": {}
 }

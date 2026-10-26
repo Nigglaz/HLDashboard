@@ -11,5 +11,95 @@
   ],
   "serviceId": "NE2",
   "vesselName": "HAMBURG EXPRESS",
-  "voyages": {}
+  "voyages": {
+    "2026-11-07": {
+      "proformaId": "ne2-2026",
+      "stops": [
+        {
+          "id": "busan-rotterdam",
+          "portId": "rotterdam",
+          "berth": 1,
+          "arrival": "2026-11-07T11:00",
+          "departure": "2026-11-09T00:01",
+          "transitMinutes": 0,
+          "source": {
+            "provider": "maersk",
+            "portName": "Rotterdam",
+            "terminalName": "APM 2 Terminal Maasvlakte II",
+            "arrivalVoyage": "638W",
+            "departureVoyage": "645E"
+          }
+        },
+        {
+          "id": "busan-hamburg",
+          "portId": "hamburg",
+          "berth": 2,
+          "arrival": "2026-11-10T23:00",
+          "departure": "2026-11-12T10:00",
+          "transitMinutes": 2819,
+          "source": {
+            "provider": "maersk",
+            "portName": "Hamburg",
+            "terminalName": "Eurogate Container Terminal Hamburg",
+            "arrivalVoyage": "638W",
+            "departureVoyage": "645E"
+          }
+        },
+        {
+          "id": "busan-antwerp",
+          "portId": "antwerp",
+          "berth": 1,
+          "arrival": "2026-11-14T06:00",
+          "departure": "2026-11-16T22:00",
+          "transitMinutes": 2640,
+          "source": {
+            "provider": "maersk",
+            "portName": "Antwerp",
+            "terminalName": "PSA Antwerp K913 Noordzee",
+            "arrivalVoyage": "638W",
+            "departureVoyage": "645E"
+          }
+        },
+        {
+          "id": "busan-london",
+          "portId": "london",
+          "berth": 1,
+          "arrival": "2026-11-17T12:00",
+          "departure": "2026-11-19T23:00",
+          "transitMinutes": 840,
+          "source": {
+            "provider": "maersk",
+            "portName": "London Gateway",
+            "terminalName": "London Gateway Terminal",
+            "arrivalVoyage": "638W",
+            "departureVoyage": "645E"
+          }
+        },
+        {
+          "id": "busan-tangier",
+          "portId": "tangier",
+          "berth": 1,
+          "arrival": "2026-11-24T03:00",
+          "departure": "2026-11-25T01:00",
+          "transitMinutes": 6000,
+          "source": {
+            "provider": "maersk",
+            "portName": "Port Tangier Mediterranee",
+            "terminalName": "TC3 Tanger Alliance Terminal",
+            "arrivalVoyage": "638W",
+            "departureVoyage": "645E"
+          }
+        }
+      ],
+      "import": {
+        "source": "maersk",
+        "vesselName": "HAMBURG EXPRESS",
+        "fetchedAt": "2026-10-26T14:36:11+00:00",
+        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=IF2&fromDate=2026-10-26",
+        "timeBasis": "unconfirmed",
+        "fromDate": "2026-10-26",
+        "toDate": "2026-12-26"
+      }
+    }
+  }
 }

@@ -555,6 +555,23 @@ function switchMode(nextMode) {
   if (mode === 'proformas') { proformaDirty = false; proformaDraft = null; proformaIsNew = false; }
   if (typeof masterDataDirty !== 'undefined' && masterDataDirty && !confirm('Ungespeicherte Stammdaten verwerfen?')) return;
   if (typeof masterDataDirty !== 'undefined') masterDataDirty = false;
+  if (mode === 'planning' && nextMode === 'import') {
+    const ship = working.find((item) => item.id === selected);
+    if (ship) {
+      const name = ship.vesselName || ship.name;
+      if ($('#import-scope').value !== 'ship' || $('#import-vessel').value !== name) {
+        importPreview = null; importChoices = {}; importExcludedShips.clear();
+        $('#import-text').value = ''; $('#import-file').value = '';
+        $('#import-voyage').value = '';
+        $('#import-error').textContent = ''; $('#import-origin').textContent = '';
+        $('#import-confirm-time').checked = false; $('#import-confirm-removals').checked = false;
+      }
+      $('#import-scope').value = 'ship';
+      $('#import-vessel').value = name;
+      $('#import-service').value = ship.serviceId;
+      updateImportScope(); renderImportPreview();
+    }
+  }
   mode = nextMode;
   if (nextMode === 'proformas') { harborOverview = false; proformaTemplate = true; }
   $('#inspector').hidden = true;

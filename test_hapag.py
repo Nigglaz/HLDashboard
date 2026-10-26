@@ -93,6 +93,33 @@ class HapagTests(unittest.TestCase):
                 fetch_schedule("Gdansk Express", "2026-10-26", "2026-11-01")
             browser.close.assert_called_once()
 
+    def test_visible_browser_waits_for_manual_challenge_then_continues(self):
+        with patch("playwright.sync_api.sync_playwright") as automation:
+            browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
+            page = browser.new_page.return_value
+            field = page.locator.return_value.locator.return_value
+            field.wait_for.side_effect = [PlaywrightTimeoutError("challenge"), None]
+            page.locator.return_value.inner_text.return_value = "Security Check"
+            voyages, calls = MagicMock(), MagicMock()
+            field.filter.side_effect = [voyages, calls]
+            voyages.count.return_value = calls.count.return_value = 1
+            voyages.locator.return_value.evaluate_all.return_value = VOYAGES
+            calls.locator.return_value.evaluate_all.return_value = ROWS
+            packet = fetch_schedule("Gdansk Express", "2026-10-26", "2026-11-01", headed=True)
+            self.assertEqual(len(packet["calls"]), 2)
+            self.assertEqual(field.wait_for.call_args.kwargs["timeout"], 120000)
+            browser.close.assert_called_once()
+
+    def test_visible_browser_reports_manual_challenge_timeout(self):
+        with patch("playwright.sync_api.sync_playwright") as automation:
+            browser = automation.return_value.__enter__.return_value.chromium.launch.return_value
+            page = browser.new_page.return_value
+            page.locator.return_value.locator.return_value.wait_for.side_effect = PlaywrightTimeoutError("timeout")
+            page.locator.return_value.inner_text.return_value = "Security Check"
+            with self.assertRaisesRegex(ValueError, "innerhalb von 2 Minuten"):
+                fetch_schedule("Gdansk Express", "2026-10-26", "2026-11-01", headed=True)
+            browser.close.assert_called_once()
+
     def test_live_endpoint_selects_hapag_and_never_writes(self):
         with tempfile.TemporaryDirectory() as root:
             client = create_test_app(root).test_client()
