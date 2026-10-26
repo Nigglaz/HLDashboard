@@ -1,25 +1,33 @@
 [
   {
     "id": "rotterdam",
+    "aliases": {
+      "maersk": [
+        "Rotterdam",
+        "APM 2 Terminal Maasvlakte II"
+      ]
+    },
     "name": "Rotterdam MV2",
     "berths": 2,
     "distancesNm": {
       "hamburg": 100,
-      "antwerp": 100,
       "london": 100,
-      "tangier": 100,
       "bremerhaven": 100,
       "algeciras": 100
     }
   },
   {
     "id": "hamburg",
+    "aliases": {
+      "maersk": [
+        "Hamburg",
+        "Eurogate Container Terminal Hamburg"
+      ]
+    },
     "name": "Hamburg Eurogate",
     "berths": 6,
     "distancesNm": {
-      "antwerp": 100,
       "london": 100,
-      "tangier": 100,
       "bremerhaven": 100,
       "algeciras": 100
     }
@@ -29,18 +37,29 @@
     "name": "Antwerpen",
     "berths": 1,
     "distancesNm": {
+      "rotterdam": 100,
+      "hamburg": 100,
       "london": 100,
-      "tangier": 100,
       "bremerhaven": 100,
       "algeciras": 100
+    },
+    "aliases": {
+      "maersk": [
+        "PSA Antwerp K913 Noordzee"
+      ]
     }
   },
   {
     "id": "london",
+    "aliases": {
+      "maersk": [
+        "London Gateway",
+        "London Gateway Terminal"
+      ]
+    },
     "name": "London",
     "berths": 4,
     "distancesNm": {
-      "tangier": 100,
       "bremerhaven": 100,
       "algeciras": 100
     }
@@ -50,12 +69,27 @@
     "name": "Tangier TC3",
     "berths": 2,
     "distancesNm": {
+      "rotterdam": 100,
+      "hamburg": 100,
+      "antwerp": 100,
+      "london": 100,
       "bremerhaven": 100,
       "algeciras": 100
+    },
+    "aliases": {
+      "maersk": [
+        "TC3 Tanger Alliance Terminal"
+      ]
     }
   },
   {
     "id": "bremerhaven",
+    "aliases": {
+      "maersk": [
+        "Bremerhaven",
+        "NTB North Sea Terminal Bremerhaven"
+      ]
+    },
     "name": "Bremerhaven",
     "berths": 2,
     "distancesNm": {
@@ -64,6 +98,12 @@
   },
   {
     "id": "algeciras",
+    "aliases": {
+      "maersk": [
+        "Algeciras",
+        "Algeciras - ML Terminal"
+      ]
+    },
     "name": "Algeciras",
     "berths": 2,
     "distancesNm": {}

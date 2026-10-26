@@ -1,6 +1,7 @@
 [
   {
     "id": "NE2",
+    "color": "#347cd0",
     "repeatWeeks": 14,
     "defaultBerths": {
       "rotterdam": 1,
@@ -8,10 +9,61 @@
       "antwerp": 1,
       "london": 1,
       "tangier": 1
-    }
+    },
+    "proformas": [
+      {
+        "id": "ne2-2026",
+        "name": "NE2/2026",
+        "repeatWeeks": 14,
+        "stops": [
+          {
+            "arrival": "2027-01-16T11:00",
+            "berth": 1,
+            "departure": "2027-01-18T00:00",
+            "id": "busan-rotterdam",
+            "portId": "rotterdam",
+            "transitMinutes": 0
+          },
+          {
+            "arrival": "2027-01-19T13:00",
+            "berth": 1,
+            "departure": "2027-01-21T10:00",
+            "id": "busan-hamburg",
+            "portId": "hamburg",
+            "transitMinutes": 2220
+          },
+          {
+            "arrival": "2027-01-23T06:00",
+            "berth": 1,
+            "departure": "2027-01-25T23:00",
+            "id": "busan-antwerp",
+            "portId": "antwerp",
+            "transitMinutes": 2640
+          },
+          {
+            "arrival": "2027-01-26T12:00",
+            "berth": 1,
+            "departure": "2027-01-28T23:00",
+            "id": "busan-london",
+            "portId": "london",
+            "transitMinutes": 780
+          },
+          {
+            "arrival": "2027-02-02T03:00",
+            "berth": 1,
+            "departure": "2027-02-03T01:00",
+            "id": "busan-tangier",
+            "portId": "tangier",
+            "transitMinutes": 6000
+          }
+        ],
+        "validFrom": "2026-01-01"
+      }
+    ]
   },
   {
     "id": "NE4",
+    "color": "#278f7d",
     "repeatWeeks": 14,
     "defaultBerths": {
       "london": 3,
@@ -19,6 +71,56 @@
       "hamburg": 2,
       "rotterdam": 2,
       "algeciras": 1
-    }
+    },
+    "proformas": [
+      {
+        "id": "ne4-2026",
+        "name": "NE4/2026",
+        "validFrom": "2026-01-01",
+        "repeatWeeks": 14,
+        "stops": [
+          {
+            "arrival": "2027-01-16T14:00",
+            "berth": 3,
+            "departure": "2027-01-18T04:00",
+            "id": "mathilde-london",
+            "portId": "london",
+            "transitMinutes": 0
+          },
+          {
+            "arrival": "2027-01-20T06:00",
+            "berth": 1,
+            "departure": "2027-01-21T22:00",
+            "id": "mathilde-bremerhaven",
+            "portId": "bremerhaven",
+            "transitMinutes": 3000
+          },
+          {
+            "arrival": "2027-01-22T15:00",
+            "berth": 2,
+            "departure": "2027-01-24T18:00",
+            "id": "mathilde-hamburg",
+            "portId": "hamburg",
+            "transitMinutes": 1020
+          },
+          {
+            "arrival": "2027-01-26T11:00",
+            "berth": 2,
+            "departure": "2027-01-27T12:00",
+            "id": "mathilde-rotterdam",
+            "portId": "rotterdam",
+            "transitMinutes": 2460
+          },
+          {
+            "arrival": "2027-02-01T20:00",
+            "berth": 1,
+            "departure": "2027-02-02T14:00",
+            "id": "mathilde-algeciras",
+            "portId": "algeciras",
+            "transitMinutes": 7680
+          }
+        ]
+      }
+    ]
   }
 ]

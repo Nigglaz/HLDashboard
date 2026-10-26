@@ -1,0 +1,9 @@
+{
+  "id": "magleby_maersk",
+  "voyages": {},
+  "name": "Magleby Maersk",
+  "vesselName": "MAGLEBY MAERSK",
+  "serviceId": "NE4",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

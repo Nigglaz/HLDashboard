@@ -1,8 +1,8 @@
 const $ = (selector) => document.querySelector(selector);
 const DAY = 86400000;
 const HOUR = 3600000;
-const EPOCH = Date.UTC(2027, 0, 14);
-let START = EPOCH;
+const today = new Date();
+let START = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
 const addMonths = (value, count) => {
   const date = new Date(value), last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + count + 1, 0)).getUTCDate();
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + count, Math.min(date.getUTCDate(), last));
@@ -16,32 +16,45 @@ const iso = (value) => new Date(value).toISOString().slice(0, 16);
 const dateLabel = (value, options = {}) => new Intl.DateTimeFormat('de-DE', {timeZone: 'UTC', ...options}).format(new Date(value));
 const shortDate = (value) => dateLabel(value, {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[character]));
-let saved, working, selected = 'busan', dayWidth = 64, history = [], future = [], editing = null, problems = [];
+let saved, working, selected = null, dayWidth = 64, history = [], future = [], editing = null, problems = [];
 let toastTimer, saving = false;
-let activeDate = '2027-01-16', selectedService = 'NE2', mode = 'planning', activeProforma = 'initial';
+let activeDate = null, selectedService = null, mode = 'planning', activeProforma = null;
+let proformaDraft = null, proformaDirty = false, proformaIsNew = false;
 let collapsed = new Set(), hiddenBerths = new Set(), views = {}, activeDrag = false;
 let compareProforma = false;
 let refreshingData = false, dataChangeNotice = '', dataLoadNotice = '';
+let rotating = false;
+let harborOverview = false, selectedPorts = new Set(), addingPort = null;
+let addingPortBusy = false;
+let importPreview = null, importChoices = {}, importing = false;
+let importFingerprint = '';
+let importExcludedShips = new Set();
+let calculatingImport = false, importPreviewQueued = false;
 const icons = () => { if (globalThis.lucide) lucide.createIcons(); };
 const serviceFor = (ship) => saved.services.find((service) => service.id === ship.serviceId);
+const proformasFor = (ship) => serviceFor(ship)?.proformas || ship.proformas || [];
+const assignmentsFor = (ship) => ship.proformaAssignments || (ship.proformas || []).map((item) => ({proformaId: item.id, validFrom: item.validFrom, offsetWeeks: 0}));
+const serviceProforma = (ship, id) => proformasFor(ship).find((item) => item.id === id);
 const dayInstant = (value) => Date.parse(value.slice(0, 10) + 'T00:00Z');
 function resolveVoyage(ship, date) {
   const day = date.slice(0, 10);
   if (ship.voyages[day]) return {key: day, source: 'actual', ...ship.voyages[day]};
-  const versions = ship.proformas.filter((item) => item.validFrom <= day).sort((left, right) => left.validFrom.localeCompare(right.validFrom));
-  if (!versions.length) return null;
-  const version = versions.at(-1), period = version.repeatWeeks * 7 * DAY, anchor = instant(version.stops[0].arrival);
-  let cycle = Math.floor((dayInstant(day) - dayInstant(version.stops[0].arrival)) / period);
-  if (iso(anchor + cycle * period).slice(0, 10) < version.validFrom) cycle++;
+  const assignments = assignmentsFor(ship).filter((item) => item.validFrom <= day).sort((left, right) => left.validFrom.localeCompare(right.validFrom));
+  if (!assignments.length) return null;
+  const assignment = assignments.at(-1), version = serviceProforma(ship, assignment.proformaId);
+  if (!version) return null;
+  const period = version.repeatWeeks * 7 * DAY, anchor = instant(version.stops[0].arrival) + assignment.offsetWeeks * 7 * DAY;
+  let cycle = Math.floor((dayInstant(day) - dayInstant(iso(anchor))) / period);
+  if (iso(anchor + cycle * period).slice(0, 10) < assignment.validFrom) cycle++;
   const key = iso(anchor + cycle * period).slice(0, 10);
-  if (ship.proformas.some((item) => item.validFrom > version.validFrom && item.validFrom <= key)) return null;
+  if (assignmentsFor(ship).some((item) => item.validFrom > assignment.validFrom && item.validFrom <= key)) return null;
   if (ship.voyages[key]) return {key, source: 'actual', ...ship.voyages[key]};
   const stops = clone(version.stops);
-  for (const stop of stops) for (const field of ['arrival', 'departure']) stop[field] = iso(instant(stop[field]) + cycle * period);
+  for (const stop of stops) for (const field of ['arrival', 'departure']) stop[field] = iso(instant(stop[field]) + cycle * period + assignment.offsetWeeks * 7 * DAY);
   return {key, source: 'proforma', proformaId: version.id, stops};
 }
 function stopsFor(ship, date = activeDate, editable = false) {
-  if (mode === 'proformas') return (ship.proformas.find((item) => item.id === activeProforma) || ship.proformas[0])?.stops || [];
+  if (mode === 'proformas') return editable ? clone(proformaDraft?.stops || []) : (proformaDraft?.stops || serviceProforma(ship, activeProforma)?.stops || []);
   const voyage = displayVoyage(ship, date);
   if (!voyage) return [];
   if (editable && !ship.voyages[voyage.key]) ship.voyages[voyage.key] = {proformaId: voyage.proformaId, stops: voyage.stops};
@@ -49,21 +62,32 @@ function stopsFor(ship, date = activeDate, editable = false) {
 }
 function displayVoyage(ship, date) {
   let voyage = resolveVoyage(ship, date);
-  for (let attempt = 0; voyage && instant(voyage.stops.at(-1).departure) < START && attempt < 200; attempt++) {
-    const version = ship.proformas.find((item) => item.id === voyage.proformaId);
+  for (let attempt = 0; voyage && Math.max(...voyage.stops.map((stop) => instant(stop.departure))) < START && attempt < 200; attempt++) {
+     const version = serviceProforma(ship, voyage.proformaId);
+    if (!version) return null;
     voyage = resolveVoyage(ship, iso(dayInstant(voyage.key) + version.repeatWeeks * 7 * DAY).slice(0, 10));
   }
   return voyage;
 }
 const shipById = (id, date = activeDate) => { const ship = working.find((item) => item.id === id); return {...ship, stops: stopsFor(ship, date)}; };
-const baselineShip = (id, date = activeDate) => { const ship = saved.ships.find((item) => item.id === id); return {...ship, stops: mode === 'proformas' ? (ship.proformas.find((item) => item.id === activeProforma)?.stops || []) : stopsFor(ship, date)}; };
+const baselineShip = (id, date = activeDate) => { const ship = saved.ships.find((item) => item.id === id); return {...ship, stops: mode === 'proformas' ? (serviceProforma(ship, activeProforma)?.stops || []) : stopsFor(ship, date)}; };
 const changed = (shipId, stop, date = activeDate) => JSON.stringify(stop) !== JSON.stringify(baselineShip(shipId, date).stops.find((old) => old.id === stop.id));
 const shipDirtyCount = (ship) => Number(JSON.stringify(ship) !== JSON.stringify(saved.ships.find((item) => item.id === ship.id)));
 const dirtyCount = () => working.reduce((count, ship) => count + shipDirtyCount(ship), 0);
-const routePorts = () => shipById(selected).stops.map((stop) => saved.ports.find((port) => port.id === stop.portId));
+const routePorts = () => harborOverview
+  ? [...selectedPorts].map((id) => saved.ports.find((port) => port.id === id)).filter(Boolean)
+  : [...new Set(shipById(selected).stops.map((stop) => stop.portId))].map((id) => saved.ports.find((port) => port.id === id));
+function portLabel(port) {
+  return saved.ports.filter((item) => item.name === port.name).length > 1 ? `${port.name} (${port.id})` : port.name;
+}
+function renderServiceOptions() {
+  $('#service-select').innerHTML = '<option value="__ports__">Hafen\u00fcbersicht</option>' + saved.services.filter((service) => working.some((ship) => ship.serviceId === service.id)).map((service) => `<option value="${escapeHtml(service.id)}">${escapeHtml(service.id)}</option>`).join('');
+  const previous = $('#import-service').value;
+  $('#import-service').innerHTML = saved.services.filter((service) => working.some((ship) => ship.serviceId === service.id)).map((service) => `<option value="${escapeHtml(service.id)}">${escapeHtml(service.id)}</option>`).join('');
+  if ([...$('#import-service').options].some((option) => option.value === previous)) $('#import-service').value = previous;
+}
 function shipColor(ship) {
-  const index = working.filter((item) => item.serviceId === ship.serviceId).findIndex((item) => item.id === ship.id);
-  return ship.serviceId === 'NE4' ? `hsl(${169 + index * 4} 53% ${35 + index % 3 * 7}%)` : `hsl(${209 + index * 4} 62% ${43 + index % 3 * 6}%)`;
+  return serviceFor(ship)?.color || '#278ba9';
 }
 
 function minimumTransit(ship, origin, destination) {
@@ -78,8 +102,8 @@ function proformaFor(ship, voyage) {
 }
 
 function referenceHtml(ship, actual, voyage, summary = false) {
-  if (!compareProforma || mode !== 'planning' || ship.serviceId !== selectedService) return '';
-  const plan = proformaFor(ship, voyage)?.stops.find((stop) => stop.id === actual.id || stop.portId === actual.portId);
+  if (!compareProforma || harborOverview || mode !== 'planning' || ship.serviceId !== selectedService) return '';
+  const plan = proformaFor(ship, voyage)?.stops.find((stop) => stop.id === actual.id || (!actual.adhoc && stop.portId === actual.portId));
   if (!plan) return '';
   const left = (instant(plan.arrival) - START) / DAY * dayWidth;
   const width = (instant(plan.departure) - instant(plan.arrival)) / DAY * dayWidth;
@@ -92,7 +116,7 @@ function referenceHtml(ship, actual, voyage, summary = false) {
 function renderConnections() {
   const chart = $('#chart');
   chart.querySelector('.proforma-connections')?.remove();
-  if (!compareProforma || mode !== 'planning') return;
+  if (!compareProforma || harborOverview || mode !== 'planning') return;
   const bounds = chart.getBoundingClientRect();
   let links = '';
   for (const reference of chart.querySelectorAll('.proforma-reference')) {
@@ -130,7 +154,7 @@ function notify(message, error = false) {
 
 function persistDraft() {
   try {
-    if (dirtyCount()) localStorage.setItem('harborline-draft', JSON.stringify({revision: saved.revision, dataSignature: saved.dataSignature, baseShips: saved.ships, ships: working, mode, activeProforma, selected, activeDate}));
+    if (dirtyCount()) localStorage.setItem('harborline-draft', JSON.stringify({dataSignature: saved.dataSignature, baseShips: saved.ships, ships: working, mode, activeProforma, selected, activeDate}));
     else localStorage.removeItem('harborline-draft');
   } catch { notify('Der Browser kann den Entwurf nicht zwischenspeichern.', true); }
 }
@@ -191,50 +215,59 @@ function barHtml(ship, stop, ghost = false, voyageDate = activeDate) {
   const left = (instant(stop.arrival) - START) / DAY * dayWidth;
   const width = (instant(stop.departure) - instant(stop.arrival)) / DAY * dayWidth;
   const dirty = mode === 'planning' && !ghost && changed(ship.id, stop, voyageDate);
-  const classes = ['bar', ghost ? 'ghost' : ship.id === selected ? 'selected' : '', dirty ? 'draft' : ''].join(' ');
+  const proforma = mode === 'proformas' || !ship.voyages[voyageDate];
+  const classes = ['bar', ghost ? 'ghost' : !harborOverview && ship.id === selected ? 'selected' : '', dirty ? 'draft' : '', proforma && !ghost ? 'proforma-pattern' : ''].join(' ');
   const title = `${ship.name}${ghost ? ' / Bisher gespeichert' : ''}\n${shortDate(instant(stop.arrival))} - ${shortDate(instant(stop.departure))}\nLiegeplatz ${stop.berth}${dirty ? '\nUngespeicherter Entwurf' : ''}`;
-  return `<div class="${classes}" style="--ship-color:${shipColor(ship)};left:${left}px;width:${Math.max(width, 6)}px" ${ghost ? '' : `data-ship="${ship.id}" data-stop="${stop.id}" data-voyage="${voyageDate}" tabindex="0" role="button" aria-label="${escapeHtml(title)}"`} title="${escapeHtml(title)}">${escapeHtml(ship.name)}${ghost || mode === 'proformas' ? '' : '<span class="resize-handle" title="Abfahrt verschieben"></span>'}</div>`;
+  return `<div class="${classes}" style="--ship-color:${shipColor(ship)};left:${left}px;width:${Math.max(width, 6)}px" ${ghost ? '' : `data-ship="${ship.id}" data-stop="${stop.id}" data-voyage="${voyageDate}" tabindex="0" role="button" aria-label="${escapeHtml(title)}"`} title="${escapeHtml(title)}">${escapeHtml(ship.name)}${ghost || harborOverview ? '' : '<span class="resize-handle" title="Abfahrt verschieben"></span>'}</div>`;
 }
 
 function visibleVoyages(ship) {
-  if (mode === 'proformas') return [{key: activeDate, stops: stopsFor(ship)}];
+  if (mode === 'proformas') return ship.id === selected && stopsFor(ship).length ? [{key: stopsFor(ship)[0].arrival.slice(0, 10), stops: stopsFor(ship)}] : [];
   const result = new Map();
-  for (const version of ship.proformas) {
-    const period = version.repeatWeeks * 7 * DAY, anchor = instant(version.stops[0].arrival);
+  for (const assignment of assignmentsFor(ship)) {
+    const version = serviceProforma(ship, assignment.proformaId);
+    if (!version) continue;
+    const period = version.repeatWeeks * 7 * DAY, anchor = instant(version.stops[0].arrival) + assignment.offsetWeeks * 7 * DAY;
     let cycle = Math.floor((START - anchor) / period) - 1;
     while (anchor + cycle * period < END) {
       const key = iso(anchor + cycle * period).slice(0, 10);
-      if (key >= version.validFrom) {
+      if (key >= assignment.validFrom) {
         const voyage = resolveVoyage(ship, key);
         if (voyage?.key === key) result.set(key, voyage);
       }
       cycle++;
     }
   }
-  for (const [key, voyage] of Object.entries(ship.voyages)) result.set(key, {key, ...voyage});
-  return [...result.values()].filter((voyage) => instant(voyage.stops[0].arrival) < END && instant(voyage.stops.at(-1).departure) >= START);
+  for (const [key, voyage] of Object.entries(ship.voyages)) result.set(key, {...voyage, key, source: 'actual'});
+  return [...result.values()].filter((voyage) => Math.min(...voyage.stops.map((stop) => instant(stop.arrival))) < END && Math.max(...voyage.stops.map((stop) => instant(stop.departure))) >= START);
 }
 
 function transitRow(position, port, nextPort, voyages) {
   const ship = working.find((item) => item.id === selected);
   let content = '';
+  let needsRotation = false;
   for (const voyage of voyages) {
-    const stay = voyage.stops.find((stop) => stop.portId === port.id);
-    const next = nextPort ? voyage.stops.find((stop) => stop.portId === nextPort.id) : null;
-    if (!stay) continue;
+    for (const [index, stay] of voyage.stops.entries()) {
+    if (stay.portId !== port.id) continue;
+    const next = voyage.stops[index + 1];
     const duration = (instant(stay.departure) - instant(stay.arrival)) / HOUR;
     const left = (instant(stay.arrival) - START) / DAY * dayWidth;
     const width = duration / 24 * dayWidth;
-    content += `<button type="button" class="stay-box" data-overview-stop="${stay.id}" data-voyage="${voyage.key}" style="left:${left}px;width:${Math.max(width, 6)}px" title="${escapeHtml(ship.name)}\nLiegezeit: ${duration} h"><strong>${escapeHtml(ship.name)}</strong><span>Liegezeit: ${duration} h</span></button>`;
+    content += `<button type="button" class="stay-box ${voyage.source === 'proforma' || mode === 'proformas' ? 'proforma-pattern' : ''}" data-overview-stop="${stay.id}" data-voyage="${voyage.key}" style="left:${left}px;width:${Math.max(width, 6)}px" title="${escapeHtml(ship.name)}\nLiegezeit: ${duration} h"><strong>${escapeHtml(ship.name)}</strong><span>Liegezeit: ${duration} h</span></button>`;
     content += referenceHtml(ship, stay, voyage, true);
     if (next) {
       const gap = (instant(next.arrival) - instant(stay.departure)) / HOUR;
       const minimum = minimumTransit(ship, stay.portId, next.portId);
+      const destination = saved.ports.find((item) => item.id === next.portId);
+      const rotationButton = (gap < 0 || next.transitMinutes < 0) && mode === 'planning'
+        ? `<button type="button" class="change-rotation" data-change-rotation="${voyage.key}" data-rotation-ship="${ship.id}">Change Rotation</button>` : '';
+      if (rotationButton) needsRotation = true;
       const transitLeft = (instant(stay.departure) - START) / DAY * dayWidth;
-      content += `<form class="transit-editor" data-transit="${next.id}" data-voyage="${voyage.key}" style="left:${transitLeft}px"><span>${escapeHtml(port.name)} &rarr; ${escapeHtml(nextPort.name)}</span><label><input type="number" min="0" max="10000" step="0.25" value="${next.transitMinutes / 60}" aria-label="Transit nach ${escapeHtml(nextPort.name)} in Stunden" required ${mode === 'proformas' ? 'disabled' : ''}> h</label><button type="submit" title="Transit anwenden und Ankunft neu berechnen" aria-label="Transit anwenden" ${mode === 'proformas' ? 'hidden' : ''}>&#10003;</button><small class="${gap < minimum.hours ? 'negative-gap' : ''}">${Math.round(gap * 100) / 100} h verf\u00fcgbar / min. ${Number(minimum.hours.toFixed(2))} h (${minimum.distance} sm / ${minimum.speed} kn)</small></form>`;
+      content += `<form class="transit-editor" data-transit="${next.id}" data-voyage="${voyage.key}" style="left:${transitLeft}px"><span>${escapeHtml(port.name)} &rarr; ${escapeHtml(destination.name)}</span><label><input type="number" min="0" max="10000" step="0.25" value="${next.transitMinutes / 60}" aria-label="Transit nach ${escapeHtml(destination.name)} in Stunden" required ${harborOverview ? 'disabled' : ''}> h</label><button type="submit" title="Transit anwenden und Ankunft neu berechnen" aria-label="Transit anwenden" ${harborOverview ? 'hidden' : ''}>&#10003;</button><small class="${gap < minimum.hours ? 'negative-gap' : ''}">${Math.round(gap * 100) / 100} h verf\u00fcgbar / min. ${Number(minimum.hours.toFixed(2))} h (${minimum.distance} sm / ${minimum.speed} kn)</small>${rotationButton}</form>`;
+    }
     }
   }
-  return `<div class="transit-row"><div class="transit-label">${nextPort ? `Transit ${position + 1}` : 'Ankunft / Liegezeit'}</div><div class="transit-track" style="width:${calendarDays() * dayWidth}px">${content}</div></div>`;
+  return `<div class="transit-row ${needsRotation ? 'rotation-needed' : ''}"><div class="transit-label">${nextPort ? `Transit ${position + 1}` : 'Ankunft / Liegezeit'}</div><div class="transit-track" style="width:${calendarDays() * dayWidth}px">${content}</div></div>`;
 }
 
 function renderChart() {
@@ -242,7 +275,7 @@ function renderChart() {
   const chart = $('#chart');
   chart.style.width = `calc(var(--label) + ${DAYS * dayWidth}px)`;
   chart.style.setProperty('--day', `${dayWidth}px`);
-  chart.classList.toggle('compare-proforma', compareProforma && mode === 'planning');
+  chart.classList.toggle('compare-proforma', compareProforma && !harborOverview && mode === 'planning');
   let days = '';
   let weekendBands = '';
   for (let index = 0; index < DAYS; index++) {
@@ -256,16 +289,19 @@ function renderChart() {
   const route = shipById(selected).stops;
   const selectedVoyages = visibleVoyages(working.find((ship) => ship.id === selected));
   const ports = routePorts();
-  for (const [position, port] of routePorts().entries()) {
-    if (position) {
+  const chartShips = mode === 'proformas' ? working.filter((item) => item.id === selected) : working;
+  for (const [position, port] of ports.entries()) {
+    if (position && !harborOverview) {
       html += transitRow(position - 1, ports[position - 1], port, selectedVoyages);
     }
-    html += `<div class="port-heading"><button class="port-label port-toggle" data-collapse="${port.id}" aria-expanded="${!collapsed.has(port.id)}" title="Hafen ein- oder ausklappen"><span class="chevron ${collapsed.has(port.id) ? 'closed' : ''}">&#9662;</span>${escapeHtml(port.name)}</button><div class="port-note">${port.berths} LIEGEPL${port.berths === 1 ? 'ATZ' : '&Auml;TZE'}</div></div>`;
+    const canInsert = route.some((stop, index) => stop.portId === port.id && index < route.length - 1);
+    const addButton = !harborOverview && mode === 'planning' ? `<button type="button" class="add-port-button" data-add-port="${port.id}" ${canInsert ? '' : 'disabled'} title="Zus\u00e4tzlichen Hafen nach diesem Aufenthalt einf\u00fcgen">+ Hafen hinzuf\u00fcgen</button>` : '';
+    html += `<div class="port-heading"><button class="port-label port-toggle" data-collapse="${port.id}" aria-expanded="${!collapsed.has(port.id)}" title="Hafen ein- oder ausklappen"><span class="chevron ${collapsed.has(port.id) ? 'closed' : ''}">&#9662;</span>${escapeHtml(port.name)}</button><div class="port-note">${port.berths} LIEGEPL${port.berths === 1 ? 'ATZ' : '&Auml;TZE'}</div>${addButton}</div>`;
     if (collapsed.has(port.id)) continue;
     for (let berth = 1; berth <= port.berths; berth++) {
       if (hiddenBerths.has(`${port.id}:${berth}`)) continue;
       let bars = '';
-      for (const raw of working) {
+      for (const raw of chartShips) {
         for (const voyage of visibleVoyages(raw)) {
         const ship = {...raw, stops: voyage.stops};
         for (const stop of ship.stops.filter((item) => item.portId === port.id)) {
@@ -280,10 +316,12 @@ function renderChart() {
       html += `<div class="berth-row" data-port="${port.id}" data-berth="${berth}"><div class="berth-label">Liegeplatz ${berth}</div><div class="track" style="width:${DAYS * dayWidth}px">${weekendBands}${bars}</div></div>`;
     }
   }
-  if (ports.length) html += transitRow(ports.length - 1, ports.at(-1), null, selectedVoyages);
+  if (ports.length && !harborOverview) html += transitRow(ports.length - 1, ports.at(-1), null, selectedVoyages);
+  if (!ports.length && harborOverview) html += '<div class="empty-ports">Keine H\u00e4fen ausgew\u00e4hlt</div>';
+  if (!ports.length && !harborOverview) html += '<div class="empty-ports">Kein Fahrplan f\u00fcr diesen Zeitraum vorhanden</div>';
   chart.innerHTML = html;
   chart.classList.toggle('hourly', dayWidth >= 240);
-  chart.classList.toggle('proforma-readonly', mode === 'proformas');
+  chart.classList.toggle('proforma-readonly', false);
   $('#visible-range').textContent = `${dateLabel(START, {day: '2-digit', month: '2-digit', year: 'numeric'})} - ${dateLabel(START + (DAYS - 1) * DAY, {day: '2-digit', month: '2-digit', year: 'numeric'})}`;
   $('#timeline-start').value = iso(START).slice(0, 10);
   $('#timeline-end').value = iso(END - DAY).slice(0, 10);
@@ -291,7 +329,22 @@ function renderChart() {
 }
 
 function renderSidebar() {
-  $('#fleet').innerHTML = working.filter((ship) => ship.serviceId === selectedService).map((ship) => {
+  const legend = $('#service-legend');
+  legend.replaceChildren();
+  for (const service of saved.services.filter((item) => working.some((ship) => ship.serviceId === item.id))) {
+    const color = service.color || '#278ba9';
+    const entry = document.createElement('span');
+    entry.className = 'configured-service';
+    const swatch = document.createElement('b');
+    swatch.className = 'swatch';
+    swatch.style.backgroundColor = color;
+    entry.append(swatch, document.createTextNode(service.id));
+    legend.append(entry);
+  }
+  $('#fleet-title').textContent = harborOverview ? 'H\u00e4fen' : 'Schiffe';
+  $('#fleet').classList.toggle('harbor-list', harborOverview);
+  $('.route-section').hidden = harborOverview;
+  $('#fleet').innerHTML = harborOverview ? saved.ports.map((port) => `<label class="port-choice"><input type="checkbox" data-pick-port="${port.id}" ${selectedPorts.has(port.id) ? 'checked' : ''}><span>${escapeHtml(portLabel(port))}</span><small>${port.berths} LP</small></label>`).join('') : working.filter((ship) => ship.serviceId === selectedService).map((ship) => {
     const count = shipDirtyCount(ship);
     return `<button class="fleet-button ${ship.id === selected ? 'active' : ''}" data-select="${ship.id}" style="--ship-color:${shipColor(ship)}"><span class="vessel-dot"></span><span>${escapeHtml(ship.name)}<small class="fleet-service">${ship.serviceId}</small></span>${count ? '<span class="vessel-draft">Pending</span>' : ''}</button>`;
   }).join('');
@@ -299,21 +352,45 @@ function renderSidebar() {
   $('#route').innerHTML = ship.stops.map((stop, index) => `<div class="route-stop"><button data-detail="${stop.id}">${escapeHtml(saved.ports.find((port) => port.id === stop.portId).name)}</button><div class="route-time">${shortDate(instant(stop.arrival))}</div>${index ? `<button class="transit" data-detail="${stop.id}" title="Transit bearbeiten">${stop.transitMinutes / 60} h Transit</button>` : ''}</div>`).join('');
   const visibleProblems = [...new Map(problems.map((item) => [`${item.isNew}:${item.message}`, item])).values()];
   $('#route-count').textContent = `${ship.stops.length} H\u00e4fen`;
-  $('#fleet-count').textContent = String(working.filter((ship) => ship.serviceId === selectedService).length).padStart(2, '0');
+  $('#fleet-count').textContent = harborOverview ? `${selectedPorts.size} / ${saved.ports.length}` : String(working.filter((ship) => ship.serviceId === selectedService).length).padStart(2, '0');
   $('#conflict-count').textContent = visibleProblems.length ? `${visibleProblems.length} HINWEIS${visibleProblems.length > 1 ? 'E' : ''}` : 'OK';
   $('#conflict-count').classList.toggle('error', visibleProblems.some((item) => item.isNew));
   $('#conflicts').innerHTML = visibleProblems.length ? visibleProblems.map((item) => `<div class="conflict-item">${item.isNew ? 'Neu' : 'Bestand'}<br>${escapeHtml(item.message)}</div>`).join('') : '<p class="conflict-good">Keine Doppelbelegungen.<br>Transitzeiten eingehalten.</p>';
 }
 
 function render() {
+  const isImport = mode === 'import';
+  const isMaster = mode === 'fleet' || mode === 'ports';
+  $('#master-panel').hidden = !isMaster;
+  $('#import-panel').hidden = !isImport;
+  $('.toolbar').hidden = isImport || isMaster;
+  $('.view-toolbar').hidden = isImport || isMaster;
+  $('.workspace').hidden = isImport || isMaster;
+  $('#tab-import').classList.toggle('nav-active', isImport);
+  $('#tab-fleet').classList.toggle('nav-active', mode === 'fleet');
+  $('#tab-ports').classList.toggle('nav-active', mode === 'ports');
+  if (isMaster) {
+    $('#proforma-toolbar').hidden = true;
+    for (const id of ['#tab-planning', '#tab-proformas', '#tab-import']) $(id).classList.remove('nav-active');
+    renderMasterPanel(mode);
+    return;
+  }
+  if (isImport) {
+    $('#proforma-toolbar').hidden = true;
+    $('#tab-planning').classList.remove('nav-active');
+    $('#tab-proformas').classList.remove('nav-active');
+    updateImportApply();
+    return;
+  }
   const selectedShip = working.find((ship) => ship.id === selected);
+  if (!selectedShip) { $('#chart').innerHTML = '<div class="empty-ports">Keine Schiffe vorhanden</div>'; return; }
   selectedService = selectedShip.serviceId;
-  if (!selectedShip.proformas.some((version) => version.id === activeProforma)) activeProforma = selectedShip.proformas[0].id;
+  if (!proformaIsNew && !proformasFor(selectedShip).some((version) => version.id === activeProforma)) activeProforma = assignmentsFor(selectedShip)[0]?.proformaId || proformasFor(selectedShip)[0]?.id || null;
   problems = findProblems();
   renderChart();
   renderSidebar();
   const count = dirtyCount();
-  $('#service-select').value = selectedService;
+  $('#service-select').value = harborOverview ? '__ports__' : selectedService;
   $('#draft-count').textContent = shipDirtyCount(selectedShip);
   $('#undo').disabled = !history.length || saving || mode !== 'planning';
   $('#redo').disabled = !future.length || saving || mode !== 'planning';
@@ -322,23 +399,24 @@ function render() {
   const oldIssues = new Map(findProblemsFor(saved.ships).map((item) => [item.key, item.severity]));
   const newIssues = findProblemsFor(selectedOnly).filter((item) => item.severity > (oldIssues.get(item.key) || 0));
   $('#save').disabled = !shipDirtyCount(selectedShip) || !!newIssues.length || saving;
-  $('#save').hidden = mode !== 'planning';
-  $('#undo').hidden = $('#redo').hidden = $('#discard').hidden = mode !== 'planning';
-  $('#cascade').closest('label').hidden = mode !== 'planning';
-  $('#compare-proforma').closest('label').hidden = mode !== 'planning';
+  $('#save').hidden = mode !== 'planning' || harborOverview;
+  $('#undo').hidden = $('#redo').hidden = $('#discard').hidden = mode !== 'planning' || harborOverview;
+  $('#cascade').closest('label').hidden = mode !== 'planning' || harborOverview;
+  $('#compare-proforma').closest('label').hidden = mode !== 'planning' || harborOverview;
+  $('#focus').hidden = harborOverview;
   $('#compare-proforma').checked = compareProforma;
-  $('#status').textContent = mode === 'proformas' ? 'Proforma \u00b7 schreibgesch\u00fctzt' : newIssues.length ? `${newIssues.length} Konflikte bei Einzel\u00fcbernahme` : count ? `${count} Schiffe mit offenen \u00c4nderungen` : 'Aktueller Plan';
+  $('#status').textContent = mode === 'proformas' ? proformaDirty ? 'Proforma-Entwurf' : 'Dienst-Proforma' : newIssues.length ? `${newIssues.length} Konflikte bei Einzel\u00fcbernahme` : count ? `${count} Schiffe mit offenen \u00c4nderungen` : 'Aktueller Plan';
   $('#voyage').value = activeDate;
   const rawSelected = working.find((ship) => ship.id === selected);
   const resolved = displayVoyage(rawSelected, activeDate);
-  $('#service-info').textContent = mode === 'proformas' ? 'PROFORMA' : resolved ? `${resolved.source === 'actual' ? 'Fahrplan' : 'Proforma'} / ${resolved.key}` : 'Keine g\u00fcltige Proforma';
-  $('#reset-voyage').hidden = mode !== 'planning' || resolved?.source !== 'actual';
+  $('#service-info').textContent = harborOverview ? 'Alle Dienste' : mode === 'proformas' ? 'PROFORMA' : resolved ? `${resolved.source === 'actual' ? 'Fahrplan' : 'Proforma'} / ${resolved.key}` : 'Noch kein Fahrplan f\u00fcr dieses Datum';
+  $('#reset-voyage').hidden = mode !== 'planning' || harborOverview || resolved?.source !== 'actual';
   $('#reset-voyage').disabled = saving;
   $('#save-label').textContent = 'Plan f\u00fcr dieses Schiff \u00fcbernehmen';
   $('#tab-planning').classList.toggle('nav-active', mode === 'planning');
   $('#tab-proformas').classList.toggle('nav-active', mode === 'proformas');
   $('#proforma-toolbar').hidden = mode !== 'proformas';
-  $('#voyage-control').hidden = mode === 'proformas';
+  $('#voyage-control').hidden = mode === 'proformas' || harborOverview;
   renderProformaControls();
   $('#zoom').value = dayWidth;
   $('#stop-count').textContent = working.reduce((count, raw) => count + visibleVoyages(raw).reduce((total, voyage) => total + voyage.stops.filter((stop) => routePorts().some((port) => port.id === stop.portId)).length, 0), 0);
@@ -348,7 +426,8 @@ function render() {
 function selectShip(id, focus = false) {
   selected = id;
   selectedService = working.find((ship) => ship.id === id).serviceId;
-  if (!working.find((ship) => ship.id === id).proformas.some((item) => item.id === activeProforma)) activeProforma = working.find((ship) => ship.id === id).proformas[0].id;
+  if (!proformasFor(working.find((ship) => ship.id === id)).some((item) => item.id === activeProforma)) activeProforma = assignmentsFor(working.find((ship) => ship.id === id))[0]?.proformaId || proformasFor(working.find((ship) => ship.id === id))[0]?.id || null;
+  if (mode === 'proformas') { proformaDraft = clone(serviceProforma(working.find((ship) => ship.id === id), activeProforma)); proformaDirty = false; proformaIsNew = false; }
   $('#inspector').hidden = true;
   render();
   if (focus) focusShip();
@@ -380,7 +459,7 @@ function openInspector(shipId, stopId, date = activeDate) {
   $('#recalculate').disabled = first;
   $('#recalculate').checked = false;
   $('#detail-error').textContent = '';
-  const readOnly = mode === 'proformas';
+  const readOnly = harborOverview;
   for (const field of ['#detail-berth', '#detail-arrival', '#detail-departure']) $(field).disabled = readOnly;
   $('#detail-transit').disabled = readOnly || first;
   $('#recalculate').disabled = readOnly || first;
@@ -401,27 +480,49 @@ function renderBerthOptions() {
 
 function renderProformaControls() {
   const ship = working.find((item) => item.id === selected);
-  const version = ship.proformas.find((item) => item.id === activeProforma) || ship.proformas[0];
+  $('#proforma-service').innerHTML = saved.services.map((service) => `<option value="${escapeHtml(service.id)}">${escapeHtml(service.id)}</option>`).join('');
+  $('#proforma-service').value = ship.serviceId;
+  const versions = proformasFor(ship);
+  const version = versions.find((item) => item.id === activeProforma) || (proformaIsNew ? proformaDraft : versions[0]);
+  if (!version) {
+    activeProforma = null;
+    $('#proforma-select').innerHTML = '<option>Keine Proforma vorhanden</option>';
+    for (const id of ['#proforma-name', '#proforma-start', '#proforma-weeks']) $(id).value = '';
+    proformaDraft = null; proformaDirty = false; proformaIsNew = false;
+    return;
+  }
   activeProforma = version.id;
-  $('#proforma-select').innerHTML = [...ship.proformas].sort((left, right) => left.validFrom.localeCompare(right.validFrom)).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} / ab ${item.validFrom}</option>`).join('');
+  if (!proformaDraft || proformaDraft.id !== activeProforma) { proformaDraft = clone(version); proformaDirty = false; proformaIsNew = false; }
+  $('#proforma-select').innerHTML = [...versions, ...(proformaIsNew ? [proformaDraft] : [])].sort((left, right) => left.validFrom.localeCompare(right.validFrom)).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} / ab ${item.validFrom}</option>`).join('');
   $('#proforma-select').value = version.id;
-  $('#proforma-name').value = version.name;
-  $('#proforma-start').value = version.validFrom;
-  $('#proforma-weeks').value = version.repeatWeeks;
+  $('#proforma-name').value = proformaDraft.name;
+  $('#proforma-start').value = proformaDraft.validFrom;
+  $('#proforma-weeks').value = proformaDraft.repeatWeeks;
+  $('#proforma-save').disabled = !proformaDirty;
+  $('#proforma-cancel').disabled = !proformaDirty;
 }
 
 function switchMode(nextMode) {
   if (saving) return;
   if (mode === nextMode) return;
+  if (mode === 'proformas' && proformaDirty && !confirm('Ungespeicherte Proforma-Aenderungen verwerfen?')) return;
+  if (mode === 'proformas') { proformaDirty = false; proformaDraft = null; proformaIsNew = false; }
+  if (typeof masterDataDirty !== 'undefined' && masterDataDirty && !confirm('Ungespeicherte Stammdaten verwerfen?')) return;
+  if (typeof masterDataDirty !== 'undefined') masterDataDirty = false;
   mode = nextMode;
+  if (nextMode === 'proformas') harborOverview = false;
   $('#inspector').hidden = true;
   render();
-  focusShip();
+  if (nextMode === 'planning' || nextMode === 'proformas') focusShip();
 }
 $('#tab-planning').addEventListener('click', () => switchMode('planning'));
 $('#tab-proformas').addEventListener('click', () => switchMode('proformas'));
+$('#tab-import').addEventListener('click', () => switchMode('import'));
 $('#proforma-select').addEventListener('change', (event) => {
+  if (proformaDirty && !confirm('Ungespeicherte Proforma-Aenderungen verwerfen?')) { event.target.value = activeProforma; return; }
   activeProforma = event.target.value;
+  proformaDraft = clone(serviceProforma(working.find((item) => item.id === selected), activeProforma));
+  proformaDirty = false; proformaIsNew = false;
   render();
   focusShip();
 });
@@ -456,10 +557,24 @@ function populateViews(name = '') {
 }
 
 function applyView(config) {
+  if (!config || !Array.isArray(config.collapsed) || !Array.isArray(config.hiddenBerths)
+      || !Number.isFinite(config.dayWidth) || config.dayWidth < 16 || config.dayWidth > 1200
+      || !Number.isFinite(instant(config.start || ''))
+      || (config.end && dayInstant(config.end) < dayInstant(config.start))) {
+    notify('Die gespeicherte Ansicht ist ung\u00fcltig.', true);
+    return;
+  }
+  if (!working.some((ship) => ship.id === config.selected)) {
+    notify('Das Schiff dieser gespeicherten Ansicht ist nicht mehr vorhanden.', true);
+    $('#view-select').value = '';
+    return;
+  }
   collapsed = new Set(config.collapsed);
   hiddenBerths = new Set(config.hiddenBerths);
   dayWidth = config.dayWidth;
   compareProforma = config.compareProforma === true;
+  harborOverview = config.harborOverview === true;
+  selectedPorts = new Set((config.selectedPorts || []).filter((id) => saved.ports.some((port) => port.id === id)));
   activeDate = config.voyageDate || config.start.slice(0, 10);
   START = instant(config.start);
   END = config.end ? dayInstant(config.end) + DAY : addMonths(START, 6);
@@ -484,6 +599,10 @@ $('#berth-options').addEventListener('change', (event) => {
 });
 
 $('#chart').addEventListener('click', (event) => {
+  const addPort = event.target.closest('[data-add-port]');
+  if (addPort) { openAddPort(addPort.dataset.addPort); return; }
+  const rotation = event.target.closest('[data-change-rotation]');
+  if (rotation) { applyRotation(rotation); return; }
   const stay = event.target.closest('[data-overview-stop]');
   if (stay) { openInspector(selected, stay.dataset.overviewStop, stay.dataset.voyage); return; }
   const toggle = event.target.closest('[data-collapse]');
@@ -495,15 +614,89 @@ $('#chart').addEventListener('click', (event) => {
   renderBerthOptions();
 });
 
+function openAddPort(portId) {
+  if (saving || mode !== 'planning' || harborOverview) return;
+  const ship = working.find((item) => item.id === selected), voyage = displayVoyage(ship, activeDate);
+  if (!voyage) return;
+  const eligible = voyage.stops.filter((stop, index) => stop.portId === portId && index < voyage.stops.length - 1);
+  if (!eligible.length) { notify('Ein zus\u00e4tzlicher Hafen ben\u00f6tigt einen folgenden Aufenthalt.', true); return; }
+  addingPort = {shipId: ship.id, voyageDate: voyage.key};
+  $('#add-port-context').textContent = `${ship.name} / Reise ${voyage.key}`;
+  $('#add-port-after').innerHTML = eligible.map((stop) => `<option value="${escapeHtml(stop.id)}">${escapeHtml(saved.ports.find((port) => port.id === stop.portId).name)} / ${shortDate(instant(stop.departure))}</option>`).join('');
+  $('#add-port-choice').innerHTML = saved.ports.map((port) => `<option value="${escapeHtml(port.id)}">${escapeHtml(portLabel(port))}</option>`).join('');
+  const defaultPort = saved.ports.find((port) => !voyage.stops.some((stop) => stop.portId === port.id)) || saved.ports[0];
+  $('#add-port-choice').value = defaultPort.id;
+  $('#add-port-error').textContent = '';
+  $('#add-port-dialog').showModal();
+}
+
+$('#cancel-add-port').addEventListener('click', () => $('#add-port-dialog').close());
+$('#add-port-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!addingPort || saving || addingPortBusy || mode !== 'planning' || harborOverview) return;
+  const {shipId, voyageDate} = addingPort;
+  const ship = working.find((item) => item.id === shipId), voyage = resolveVoyage(ship, voyageDate);
+  if (!voyage) return;
+  const before = JSON.stringify(working), ids = new Set(voyage.stops.map((stop) => stop.id));
+  addingPortBusy = true;
+  $('#confirm-add-port').disabled = true;
+  $('#add-port-error').textContent = '';
+  try {
+    const response = await fetch(`/api/ships/${encodeURIComponent(shipId)}/adhoc-stop`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dataSignature: saved.dataSignature, voyageDate, stops: voyage.stops, afterStopId: $('#add-port-after').value, portId: $('#add-port-choice').value})});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Hafen konnte nicht eingef\u00fcgt werden.');
+    if (before !== JSON.stringify(working)) throw new Error('Der Entwurf wurde inzwischen ge\u00e4ndert. Bitte erneut einf\u00fcgen.');
+    const next = clone(working), updated = next.find((item) => item.id === shipId);
+    updated.voyages[voyageDate] = {proformaId: result.proformaId, stops: result.stops};
+    selected = shipId; activeDate = voyageDate;
+    $('#add-port-dialog').close();
+    commit(next);
+    const added = result.stops.find((stop) => !ids.has(stop.id));
+    if (added) {
+      collapsed.delete(added.portId);
+      hiddenBerths.delete(`${added.portId}:${added.berth}`);
+      renderChart();
+      $('#chart-scroll').scrollLeft = Math.max(0, (instant(added.arrival) - START) / DAY * dayWidth - 70);
+    }
+    notify('Hafen nur in dieser Reise als Entwurf eingef\u00fcgt. Zeiten und Konflikte k\u00f6nnen jetzt angepasst werden.');
+  } catch (error) { $('#add-port-error').textContent = error.message; }
+  finally { addingPortBusy = false; $('#confirm-add-port').disabled = false; }
+});
+
+async function applyRotation(button) {
+  if (saving || rotating || mode !== 'planning') return;
+  const shipId = button.dataset.rotationShip, key = button.dataset.changeRotation;
+  const ship = working.find((item) => item.id === shipId), voyage = resolveVoyage(ship, key);
+  if (!voyage) return;
+  const before = JSON.stringify(working);
+  rotating = true;
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/ships/${encodeURIComponent(shipId)}/rotation`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({dataSignature: saved.dataSignature, voyageDate: key, stops: voyage.stops})});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Change Rotation konnte nicht berechnet werden.');
+    if (before !== JSON.stringify(working) || mode !== 'planning') throw new Error('Der Entwurf wurde inzwischen ge\u00e4ndert. Bitte Change Rotation erneut ausf\u00fchren.');
+    const next = clone(working), updated = next.find((item) => item.id === shipId);
+    updated.voyages[key] = {proformaId: result.proformaId, stops: result.stops};
+    selected = shipId;
+    activeDate = key;
+    $('#inspector').hidden = true;
+    commit(next);
+    notify('Neue Hafenfolge als Entwurf \u00fcbernommen. Aufenthaltszeiten sind unver\u00e4ndert.');
+  } catch (error) { notify(error.message, true); }
+  finally { rotating = false; button.disabled = false; }
+}
+
 $('#chart').addEventListener('submit', (event) => {
   const form = event.target.closest('[data-transit]');
   if (!form) return;
   event.preventDefault();
-  if (saving || mode !== 'planning') return;
+  if (saving || !['planning', 'proformas'].includes(mode)) return;
   const hours = Number(form.querySelector('input').value);
   if (!Number.isFinite(hours) || hours < 0) return;
   const next = clone(working), raw = next.find((ship) => ship.id === selected);
-  const ship = {...raw, stops: stopsFor(raw, form.dataset.voyage, true)};
+  const ship = {...raw, stops: mode === 'proformas' ? clone(proformaDraft.stops) : stopsFor(raw, form.dataset.voyage, true)};
   const index = ship.stops.findIndex((stop) => stop.id === form.dataset.transit), stop = ship.stops[index];
   const transitMinutes = Math.round(hours * 60);
   const delta = instant(ship.stops[index - 1].departure) + transitMinutes * 60000 - instant(stop.arrival);
@@ -513,7 +706,8 @@ $('#chart').addEventListener('submit', (event) => {
     stop.arrival = iso(instant(stop.arrival) + delta);
     stop.departure = iso(instant(stop.departure) + delta);
   }
-  commit(next);
+  if (mode === 'proformas') { proformaDraft.stops = ship.stops; proformaDirty = true; render(); }
+  else commit(next);
 });
 
 $('#chart-scroll').addEventListener('wheel', (event) => {
@@ -562,20 +756,19 @@ $('#view-select').addEventListener('change', (event) => {
   $('#view-name').value = name;
   try { localStorage.setItem('harborline-view', name); } catch {}
 });
-$('#save-view').addEventListener('click', async () => {
+$('#save-view').addEventListener('click', () => {
   const name = $('#view-name').value.trim();
   if (!name) { notify('Bitte einen Namen f\u00fcr die Ansicht eingeben.', true); return; }
   const config = {collapsed: [...collapsed], hiddenBerths: [...hiddenBerths], dayWidth, voyageDate: activeDate,
-    start: iso(START), end: iso(END - DAY), selected, compareProforma, scrollLeft: $('#chart-scroll').scrollLeft, scrollTop: $('#chart-scroll').scrollTop};
+    start: iso(START), end: iso(END - DAY), selected, compareProforma, harborOverview, selectedPorts: [...selectedPorts], scrollLeft: $('#chart-scroll').scrollLeft, scrollTop: $('#chart-scroll').scrollTop};
   try {
-    const response = await fetch('/api/views', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, config})});
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Ansicht konnte nicht gespeichert werden.');
-    views = result;
+    const updated = {...views, [name]: config};
+    localStorage.setItem('harborline-views', JSON.stringify(updated));
+    localStorage.setItem('harborline-view', name);
+    views = updated;
     populateViews(name);
-    try { localStorage.setItem('harborline-view', name); } catch {}
     $('#view-options').open = false;
-    notify('Ansicht gespeichert.');
+    notify('Ansicht in diesem Browser gespeichert.');
   } catch (error) { notify(error.message, true); }
 });
 $('#reset-view').addEventListener('click', () => {
@@ -585,9 +778,9 @@ $('#reset-view').addEventListener('click', () => {
 
 $('#stop-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  if (saving || mode !== 'planning') return;
+  if (saving || !['planning', 'proformas'].includes(mode)) return;
   const next = clone(working), ship = next.find((item) => item.id === editing.shipId);
-  const editableShip = {...ship, stops: stopsFor(ship, editing.date, true)};
+  const editableShip = {...ship, stops: mode === 'proformas' ? clone(proformaDraft.stops) : stopsFor(ship, editing.date, true)};
   const index = editableShip.stops.findIndex((item) => item.id === editing.stopId), stop = editableShip.stops[index];
   const oldDeparture = instant(stop.departure);
   let arrival = instant($('#detail-arrival').value), departure = instant($('#detail-departure').value);
@@ -603,7 +796,8 @@ $('#stop-form').addEventListener('submit', (event) => {
   }
   Object.assign(stop, {arrival: iso(arrival), departure: iso(departure), berth: Number($('#detail-berth').value), transitMinutes: transit});
   if ($('#cascade').checked) shiftStops(editableShip, index + 1, departure - oldDeparture);
-  commit(next);
+  if (mode === 'proformas') { proformaDraft.stops = editableShip.stops; proformaDirty = true; render(); }
+  else commit(next);
   $('#inspector').hidden = true;
 });
 
@@ -620,7 +814,7 @@ $('#chart').addEventListener('keydown', (event) => {
 $('#chart').addEventListener('pointerdown', (event) => {
   const bar = event.target.closest('.bar[data-stop]');
   if (!bar || event.button !== 0 || saving) return;
-  if (mode === 'proformas') {
+  if (harborOverview) {
     openInspector(bar.dataset.ship, bar.dataset.stop, bar.dataset.voyage);
     return;
   }
@@ -673,7 +867,7 @@ $('#chart').addEventListener('pointerdown', (event) => {
       return;
     }
     const next = clone(working), raw = next.find((item) => item.id === shipId);
-    const nextShip = {...raw, stops: stopsFor(raw, voyageDate, true)}, nextStop = nextShip.stops[index];
+    const nextShip = {...raw, stops: mode === 'proformas' ? clone(proformaDraft.stops) : stopsFor(raw, voyageDate, true)}, nextStop = nextShip.stops[index];
     selected = shipId;
     if (resize) {
       nextStop.departure = iso(instant(nextStop.departure) + delta);
@@ -686,7 +880,8 @@ $('#chart').addEventListener('pointerdown', (event) => {
       }
       nextStop.berth = targetBerth;
     }
-    commit(next);
+    if (mode === 'proformas') { proformaDraft.stops = nextShip.stops; proformaDirty = true; }
+    else commit(next);
     render();
   }
   function cancel() {
@@ -718,10 +913,25 @@ $('#inspector-handle').addEventListener('pointerdown', (event) => {
 });
 
 $('#service-select').addEventListener('change', (event) => {
+  if (event.target.value === '__ports__') {
+    harborOverview = true;
+    mode = 'planning';
+    if (!selectedPorts.size) selectedPorts = new Set(shipById(selected).stops.map((stop) => stop.portId));
+    $('#inspector').hidden = true;
+    render();
+    return;
+  }
+  harborOverview = false;
   selectedService = event.target.value;
   selectShip(working.find((ship) => ship.serviceId === selectedService).id, true);
 });
 $('#fleet').addEventListener('click', (event) => { const button = event.target.closest('[data-select]'); if (button) selectShip(button.dataset.select, true); });
+$('#fleet').addEventListener('change', (event) => {
+  const id = event.target.dataset.pickPort;
+  if (!id) return;
+  if (event.target.checked) selectedPorts.add(id); else selectedPorts.delete(id);
+  render();
+});
 $('#route').addEventListener('click', (event) => { const button = event.target.closest('[data-detail]'); if (button) openInspector(selected, button.dataset.detail); });
 $('#focus').addEventListener('click', focusShip);
 $('#zoom').addEventListener('input', (event) => zoomAt(Number(event.target.value)));
@@ -755,7 +965,7 @@ $('#save').addEventListener('click', async () => {
   const disabled = controls.map((control) => control.disabled);
   controls.forEach((control) => { control.disabled = true; });
   try {
-    const response = await fetch(`/api/ships/${shipId}/plan`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({revision: saved.revision, dataSignature: saved.dataSignature, ship: before.find((ship) => ship.id === shipId)})});
+    const response = await fetch(`/api/ships/${shipId}/plan`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dataSignature: saved.dataSignature, ship: before.find((ship) => ship.id === shipId)})});
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Speichern fehlgeschlagen.');
     saved = result;
@@ -778,6 +988,8 @@ $('#export').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 document.addEventListener('keydown', (event) => {
+  if (mode === 'fleet' || mode === 'ports') return;
+  if ($('#add-port-dialog').open) return;
   if (event.key === 'Escape') $('#inspector').hidden = true;
   if (event.target.matches('input,select,textarea')) return;
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); $(event.shiftKey ? '#redo' : '#undo').click(); }
@@ -789,9 +1001,19 @@ async function initialize() {
     if (!response.ok) throw new Error('Fahrpl\u00e4ne konnten nicht geladen werden.');
     saved = await response.json();
     working = clone(saved.ships);
+    if (!working.length) throw new Error('Keine Schiffsdateien vorhanden.');
+    const firstShip = working[0];
+    const firstAssignment = [...assignmentsFor(firstShip)].sort((left, right) => left.validFrom.localeCompare(right.validFrom))[0];
+    const firstVersion = firstAssignment ? serviceProforma(firstShip, firstAssignment.proformaId) : proformasFor(firstShip)[0];
+    selected = firstShip.id;
+    selectedService = firstShip.serviceId;
+    activeProforma = firstVersion?.id || null;
+    activeDate = (firstAssignment && resolveVoyage(firstShip, firstAssignment.validFrom)?.key) || firstVersion?.stops[0].arrival.slice(0, 10) || Object.keys(firstShip.voyages).sort()[0] || iso(START).slice(0, 10);
+    START = dayInstant(activeDate) - 2 * DAY;
+    END = addMonths(START, 6);
     try {
       const draft = JSON.parse(localStorage.getItem('harborline-draft') || 'null');
-      if (draft?.revision === saved.revision && Array.isArray(draft.ships) && draft.ships.every((ship) => Array.isArray(ship.proformas) && ship.voyages)) {
+      if (draft?.dataSignature && Array.isArray(draft.ships) && draft.ships.every((ship) => Array.isArray(ship.proformaAssignments) && ship.voyages)) {
         if (draft.dataSignature && draft.dataSignature !== saved.dataSignature) {
           const fresh = saved;
           if (Array.isArray(draft.baseShips)) saved = {...saved, dataSignature: draft.dataSignature, ships: draft.baseShips};
@@ -800,7 +1022,7 @@ async function initialize() {
         }
         working = draft.ships.map((ship) => ({...saved.ships.find((item) => item.id === ship.id), ...ship, maxSpeedKnots: ship.maxSpeedKnots ?? saved.ships.find((item) => item.id === ship.id)?.maxSpeedKnots ?? 20}));
         mode = 'planning';
-        activeProforma = draft.activeProforma || 'initial';
+        activeProforma = draft.activeProforma || firstVersion?.id || null;
         if (working.some((ship) => ship.id === draft.selected)) selected = draft.selected;
         if (!working.some((ship) => ship.id === selected)) selected = working[0].id;
         selectedService = working.find((ship) => ship.id === selected).serviceId;
@@ -808,8 +1030,11 @@ async function initialize() {
         if (!dataChangeNotice) notify('Lokaler Entwurf wiederhergestellt.');
       } else if (draft) { notify('Ein \u00e4lterer lokaler Entwurf passt nicht zum aktuellen Plan. Er bleibt im Browser gespeichert.', true); }
     } catch { localStorage.removeItem('harborline-draft'); }
-    $('#service-select').innerHTML = saved.services.map((service) => `<option value="${escapeHtml(service.id)}">${escapeHtml(service.id)}</option>`).join('');
-    views = await (await fetch('/api/views')).json();
+    renderServiceOptions();
+    updateImportScope();
+    let localViews = {};
+    try { localViews = JSON.parse(localStorage.getItem('harborline-views') || '{}'); } catch {}
+    views = localViews && typeof localViews === 'object' && !Array.isArray(localViews) ? localViews : {};
     let viewName = '';
     try { viewName = localStorage.getItem('harborline-view') || ''; } catch {}
     populateViews(viewName);
@@ -821,7 +1046,7 @@ async function initialize() {
 initialize();
 
 async function refreshData() {
-  if (!saved || saving || refreshingData || activeDrag || !$('#inspector').hidden) return;
+  if (!saved || saving || refreshingData || activeDrag || !$('#inspector').hidden || $('#add-port-dialog').open) return;
   refreshingData = true;
   try {
     const response = await fetch('/api/plan', {cache: 'no-store'});
@@ -831,7 +1056,7 @@ async function refreshData() {
     dataLoadNotice = '';
     if (next.dataSignature === saved.dataSignature) return;
     const focused = document.activeElement;
-    if (dirtyCount() || focused?.matches('input,select,textarea') || $('#view-options').open) {
+    if (dirtyCount() || (typeof masterDataDirty !== 'undefined' && masterDataDirty) || focused?.matches('input,select,textarea') || $('#view-options').open) {
       if (dataChangeNotice !== next.dataSignature) {
         notify('JSON-Dateien ge\u00e4ndert. Offene Entw\u00fcrfe und Eingaben werden nicht \u00fcberschrieben. Entwurf bei Bedarf exportieren oder verwerfen.', true);
         dataChangeNotice = next.dataSignature;
@@ -845,7 +1070,7 @@ async function refreshData() {
     if (!working.some((ship) => ship.id === selected)) selected = working[0]?.id;
     if (!selected) throw new Error('Keine Schiffsdateien vorhanden.');
     selectedService = working.find((ship) => ship.id === selected).serviceId;
-    $('#service-select').innerHTML = saved.services.filter((service) => working.some((ship) => ship.serviceId === service.id)).map((service) => `<option value="${escapeHtml(service.id)}">${escapeHtml(service.id)}</option>`).join('');
+    renderServiceOptions();
     render();
     scroll.scrollLeft = left; scroll.scrollTop = top;
     dataChangeNotice = '';
@@ -856,3 +1081,263 @@ async function refreshData() {
 }
 setInterval(refreshData, 5000);
 globalThis.addEventListener('focus', refreshData);
+
+function importPayload() {
+  const text = $('#import-text').value.trim();
+  const payload = {scope: $('#import-scope').value, serviceId: $('#import-scope').value === 'service' ? $('#import-service').value : null, excludedShips: [...importExcludedShips], choices: importChoices, vesselName: $('#import-vessel').value.trim(), fromDate: $('#import-from').value, toDate: $('#import-to').value, voyageDate: $('#import-voyage').value || null};
+  if (text.startsWith('{')) payload.packet = JSON.parse(text); else payload.text = text;
+  return payload;
+}
+
+function updateImportApply() {
+  const involved = importPreview?.candidates?.map((ship) => ship.id) || [importPreview?.shipId];
+  const pending = importPreview && working.some((ship) => involved.includes(ship.id) && shipDirtyCount(ship));
+  const removed = importPreview?.changes.some((change) => change.status === 'removed');
+  $('#import-calendar-pending').hidden = !pending;
+  $('#import-calendar-pending').textContent = importPreview?.scope === 'service' ? 'F\u00fcr mindestens ein eingeschlossenes Schiff liegt ein offener Kalenderentwurf vor.' : 'F\u00fcr dieses Schiff liegt bereits ein offener Kalenderentwurf vor.';
+  let unchanged = false;
+  try { unchanged = importFingerprint === JSON.stringify(importPayload()); } catch {}
+  const reasons = [];
+  if (importing) reasons.push('Import wird verarbeitet.');
+  if (!importPreview?.candidate) reasons.push('Zuerst eine g\u00fcltige Importvorschau berechnen.');
+  else {
+    if (!unchanged) reasons.push('Eingaben wurden ge\u00e4ndert: Vorschau neu berechnen.');
+    if (importPreview.unresolved.length) reasons.push(`${importPreview.unresolved.length} eingeschlossene Aufenthalte sind nicht zugeordnet. Hafen oder \u201eIgnorieren\u201c ausw\u00e4hlen.`);
+    if (importPreview.errors?.length) reasons.push(`${importPreview.errors.length} Schiffsergebnisse sind fehlgeschlagen oder unvollst\u00e4ndig. Erneut abrufen oder das Schiff ausdr\u00fccklich ausschlie\u00dfen.`);
+    if (pending) reasons.push('F\u00fcr mindestens ein eingeschlossenes Schiff besteht ein offener Kalenderentwurf.');
+    if (!$('#import-confirm-time').checked) reasons.push('Zeitbasis der importierten Uhrzeiten best\u00e4tigen.');
+    if (removed && !$('#import-confirm-removals').checked) reasons.push('Das Entfernen bisheriger Aufenthalte best\u00e4tigen.');
+  }
+  $('#import-apply').disabled = reasons.length > 0;
+  $('#import-apply').textContent = importPreview?.scope === 'service' ? `Import f\u00fcr Dienst ${importPreview.serviceId} \u00fcbernehmen` : 'Import f\u00fcr dieses Schiff \u00fcbernehmen';
+  let blockers = $('#import-blockers');
+  if (!blockers) { blockers = document.createElement('ul'); blockers.id = 'import-blockers'; blockers.className = 'import-blockers'; blockers.setAttribute('aria-live', 'polite'); $('#import-apply').before(blockers); }
+  blockers.replaceChildren(...reasons.map((reason) => { const item = document.createElement('li'); item.textContent = reason; return item; }));
+  blockers.hidden = !reasons.length;
+}
+
+function renderImportPreview() {
+  $('#import-review').hidden = !importPreview;
+  if (!importPreview) { $('#import-state').textContent = 'Keine Vorschau'; updateImportApply(); return; }
+  const preview = importPreview;
+  $('#import-service-results').hidden = preview.scope !== 'service';
+  $('#import-ships').innerHTML = (preview.shipPreviews || []).map((ship) => `<tr class="${ship.error ? 'unmapped-row' : ''}"><td><input type="checkbox" data-import-ship="${escapeHtml(ship.shipId)}" aria-label="${escapeHtml(ship.vesselName)} einschlie\u00dfen" ${ship.excluded ? '' : 'checked'}></td><td><strong>${escapeHtml(ship.vesselName)}</strong></td><td>${escapeHtml(ship.voyageDate || '-')}</td><td>${escapeHtml(ship.excluded ? 'Ausgeschlossen' : ship.error || `${ship.changes} \u00c4nderungen`)}</td></tr>`).join('');
+  $('#import-state').textContent = 'PENDING';
+  $('#import-summary').textContent = `${preview.rows.length} Aufenthalte / ${preview.rows.filter((row) => !row.include).length} ignoriert / ${preview.unresolved.length} ungekl\u00e4rt`;
+  if (preview.preservedCount) $('#import-summary').textContent += ` / ${preview.preservedCount} bestehende Aufenthalte gesch\u00fctzt`;
+  $('#import-voyage-info').textContent = preview.scope === 'service' ? `Dienst ${preview.serviceId} / ${preview.candidates.length} eingeschlossene Schiffe` : `${preview.vesselName} / Reise ${preview.voyageDate || '-'}`;
+  $('#import-mappings').innerHTML = preview.rows.map((row) => `<tr class="${!row.include ? 'ignored-row' : !row.portId ? 'unmapped-row' : ''}"><td><input type="checkbox" data-import-include="${escapeHtml(row.id)}" aria-label="${escapeHtml(row.portName)} einschlie\u00dfen" ${row.include ? 'checked' : ''}>${!row.include ? '<span class="ignored-tag">Ignoriert</span>' : ''}</td><td>${row.vesselName ? `<small>${escapeHtml(row.vesselName)}</small>` : ''}<strong>${escapeHtml(row.portName)}</strong><small>${escapeHtml(row.terminalName || '')}</small></td><td>${shortDate(instant(row.arrival))}</td><td>${shortDate(instant(row.departure))}</td><td><select data-import-port="${escapeHtml(row.id)}" aria-label="Hafenzuordnung ${escapeHtml(row.portName)}"><option value="__ignore__" ${!row.include ? 'selected' : ''}>Ignorieren</option><option value="" ${row.include && !row.portId ? 'selected' : ''}>Nicht zugeordnet</option>${saved.ports.map((port) => `<option value="${escapeHtml(port.id)}" ${row.include && port.id === row.portId ? 'selected' : ''}>${escapeHtml(port.name)}</option>`).join('')}</select></td></tr>`).join('');
+  const names = {new: 'Neu', changed: 'Ge\u00e4ndert', removed: 'Entfernt', unchanged: 'Unver\u00e4ndert'};
+  for (const option of $('#import-mappings').querySelectorAll('select option')) {
+    const port = saved.ports.find((item) => item.id === option.value);
+    if (port) option.textContent = portLabel(port);
+  }
+  [...$('#import-mappings').rows].forEach((element, index) => {
+    if (!preview.rows[index].outsideWindow) return;
+    element.title = 'Au\u00dferhalb des Importzeitraums: wird nicht ge\u00e4ndert';
+    element.querySelectorAll('input,select').forEach((input) => { input.disabled = true; });
+    const tag = element.querySelector('.ignored-tag');
+    if (tag) tag.textContent = 'Gesch\u00fctzt';
+  });
+  const stamp = (value) => value ? shortDate(instant(value)) : '-';
+  $('#import-differences').innerHTML = preview.changes.map((change) => `<tr class="diff-${change.status}"><td><span class="diff-tag">${names[change.status]}</span></td><td>${change.vesselName ? `<small>${escapeHtml(change.vesselName)}</small>` : ''}${escapeHtml(saved.ports.find((port) => port.id === change.portId)?.name || change.portId)}</td><td>${stamp(change.before?.arrival)}</td><td>${stamp(change.after?.arrival)}</td><td>${stamp(change.before?.departure)}</td><td>${stamp(change.after?.departure)}</td><td>${change.before?.berth || '-'} &rarr; ${change.after?.berth || '-'}</td></tr>`).join('');
+  $('#import-removals-label').hidden = !preview.changes.some((change) => change.status === 'removed');
+  updateImportApply();
+}
+
+async function calculateImportPreview() {
+  if (importing) { if (calculatingImport) importPreviewQueued = true; return; }
+  calculatingImport = true;
+  importing = true;
+  $('#import-preview').disabled = true;
+  $('#import-error').textContent = '';
+  try {
+    const payload = importPayload(), fingerprint = JSON.stringify(payload);
+    $('#import-confirm-time').checked = false; $('#import-confirm-removals').checked = false;
+    const response = await fetch('/api/import/preview', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: fingerprint});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Importvorschau fehlgeschlagen.');
+    if (fingerprint !== JSON.stringify(importPayload())) { importPreviewQueued = true; return; }
+    importPreview = result;
+    importFingerprint = fingerprint;
+    renderImportPreview();
+  } catch (error) { importPreview = null; renderImportPreview(); $('#import-error').textContent = error.message; }
+  finally {
+    calculatingImport = false; importing = false;
+    $('#import-preview').disabled = false; updateImportApply();
+    if (importPreviewQueued) { importPreviewQueued = false; await calculateImportPreview(); }
+  }
+}
+
+$('#import-form').addEventListener('submit', (event) => { event.preventDefault(); calculateImportPreview(); });
+function updateImportScope() {
+  const serviceMode = $('#import-scope').value === 'service';
+  $('#import-vessel-field').hidden = serviceMode;
+  $('#import-service-field').hidden = !serviceMode;
+  $('#import-vessel').required = !serviceMode;
+  $('#import-live').textContent = serviceMode ? 'Dienst live abrufen' : 'Maersk live abrufen';
+}
+for (const selector of ['#import-scope', '#import-service']) $(selector).addEventListener('change', () => {
+  importPreview = null; importChoices = {}; importExcludedShips.clear();
+  updateImportScope(); renderImportPreview();
+});
+$('#import-ships').addEventListener('change', (event) => {
+  const id = event.target.dataset.importShip;
+  if (!id) return;
+  if (event.target.checked) importExcludedShips.delete(id); else importExcludedShips.add(id);
+  calculateImportPreview();
+});
+$('#import-live').addEventListener('click', async () => {
+  if (importing) return;
+  importing = true;
+  importPreview = null;
+  renderImportPreview();
+  $('#import-error').textContent = '';
+  $('#import-state').textContent = 'Live-Abruf l\u00e4uft';
+  const controls = [...$('#import-form').querySelectorAll('input,select,textarea,button')];
+  const disabled = controls.map((control) => control.disabled);
+  controls.forEach((control) => { control.disabled = true; });
+  let loaded = false;
+  try {
+    const serviceMode = $('#import-scope').value === 'service';
+    const members = serviceMode ? saved.ships.filter((ship) => ship.serviceId === $('#import-service').value) : [{vesselName: $('#import-vessel').value}];
+    if (!members.length) throw new Error('Der Dienst enth\u00e4lt keine Schiffe.');
+    const packets = [], errors = [];
+    for (const [index, ship] of members.entries()) {
+      const name = (ship.vesselName || ship.name).trim();
+      $('#import-state').textContent = `Live-Abruf ${index + 1}/${members.length}: ${name}`;
+      try {
+        const response = await fetch('/api/import/maersk/live', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({vesselName: name, fromDate: $('#import-from').value, toDate: $('#import-to').value, headed: $('#import-browser').checked})});
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Live-Abruf fehlgeschlagen.');
+        packets.push(result.packet);
+      } catch (error) {
+        if (!serviceMode) throw error;
+        errors.push({shipId: ship.id, vesselName: name, error: error.message});
+      }
+    }
+    const packet = serviceMode ? {schemaVersion: 1, source: 'maersk', serviceId: $('#import-service').value, packets, errors} : packets[0];
+    $('#import-text').value = JSON.stringify(packet, null, 2);
+    $('#import-origin').textContent = serviceMode ? `Live: Maersk / ${packets.length} erfolgreich / ${errors.length} fehlgeschlagen` : `Live: Maersk / ${packet.fetchedAt}`;
+    importChoices = {};
+    importExcludedShips.clear();
+    loaded = true;
+  } catch (error) { $('#import-error').textContent = error.message; $('#import-state').textContent = 'Live-Abruf fehlgeschlagen'; }
+  finally {
+    importing = false;
+    controls.forEach((control, index) => { control.disabled = disabled[index]; });
+    updateImportApply();
+  }
+  if (loaded) await calculateImportPreview();
+});
+$('#import-file').addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { $('#import-error').textContent = 'Datei ist gr\u00f6\u00dfer als 2 MB.'; return; }
+  $('#import-text').value = await file.text();
+  try {
+    const packet = JSON.parse($('#import-text').value);
+    if (packet.packets && packet.serviceId) { $('#import-scope').value = 'service'; $('#import-service').value = packet.serviceId; }
+    else { $('#import-scope').value = 'ship'; if (packet.vesselName) $('#import-vessel').value = packet.vesselName; }
+    if (packet.fromDate) $('#import-from').value = packet.fromDate;
+    if (packet.toDate) $('#import-to').value = packet.toDate;
+    updateImportScope();
+  } catch {}
+  $('#import-origin').textContent = file.name;
+  importChoices = {}; importPreview = null; importExcludedShips.clear();
+  renderImportPreview();
+});
+$('#import-mappings').addEventListener('change', (event) => {
+  const input = event.target, id = input.dataset.importInclude || input.dataset.importPort;
+  if (!id || !importPreview) return;
+  const row = importPreview.rows.find((item) => item.id === id);
+  importChoices[id] = {...(importChoices[id] || {}), include: row.include, portId: row.portId};
+  if (input.dataset.importInclude) importChoices[id].include = input.checked;
+  else {
+    importChoices[id].include = input.value !== '__ignore__';
+    importChoices[id].portId = input.value && input.value !== '__ignore__' ? input.value : null;
+  }
+  calculateImportPreview();
+});
+for (const selector of ['#import-confirm-time', '#import-confirm-removals']) $(selector).addEventListener('change', updateImportApply);
+$('#import-clear').addEventListener('click', () => {
+  importPreview = null; importChoices = {}; importExcludedShips.clear();
+  $('#import-error').textContent = ''; $('#import-confirm-time').checked = false; $('#import-confirm-removals').checked = false;
+  renderImportPreview();
+});
+$('#import-text').addEventListener('input', () => { importPreview = null; importChoices = {}; importExcludedShips.clear(); renderImportPreview(); });
+for (const selector of ['#import-vessel', '#import-from', '#import-to', '#import-voyage']) $(selector).addEventListener('input', () => { importPreview = null; renderImportPreview(); });
+$('#import-apply').addEventListener('click', async () => {
+  if (importing || !importPreview || $('#import-apply').disabled) return;
+  importing = true; updateImportApply();
+  $('#import-error').textContent = '';
+  try {
+    const response = await fetch('/api/import/apply', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...importPayload(), dataSignature: importPreview.dataSignature, confirmTimeBasis: $('#import-confirm-time').checked, confirmRemovals: $('#import-confirm-removals').checked})});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Import konnte nicht \u00fcbernommen werden.');
+    const pending = new Map(working.filter((ship) => shipDirtyCount(ship)).map((ship) => [ship.id, ship]));
+    const serviceMode = importPreview.scope === 'service';
+    saved = result;
+    working = saved.ships.map((ship) => clone(pending.get(ship.id) || ship));
+    history = []; future = []; persistDraft();
+    importPreview = null; renderImportPreview();
+    $('#import-state').textContent = '\u00dcbernommen';
+    notify(serviceMode ? 'Dienstimport \u00fcbernommen. Proformas unver\u00e4ndert.' : 'Import f\u00fcr dieses Schiff \u00fcbernommen. Proforma unver\u00e4ndert.');
+    if (result.importWarnings?.length) alert(`Import wurde durchgefuehrt. Dabei sind Konflikte entstanden:\n\n${result.importWarnings.map((warning) => `• ${warning}`).join('\n')}`);
+  } catch (error) { $('#import-error').textContent = error.message; }
+  finally { importing = false; updateImportApply(); }
+});
+for (const [selector, field, convert] of [['#proforma-name', 'name', (value) => value], ['#proforma-start', 'validFrom', (value) => value], ['#proforma-weeks', 'repeatWeeks', Number]]) {
+  $(selector).addEventListener('input', (event) => {
+    if (!proformaDraft) return;
+    proformaDraft[field] = convert(event.target.value);
+    proformaDirty = true;
+    $('#proforma-save').disabled = false;
+    $('#proforma-cancel').disabled = false;
+    $('#status').textContent = 'Proforma-Entwurf';
+  });
+}
+$('#proforma-new').addEventListener('click', () => {
+  const ship = working.find((item) => item.id === selected), source = serviceProforma(ship, activeProforma) || proformaDraft;
+  if (!source?.stops?.length) { notify('Zum Erstellen einer Proforma wird zuerst eine Hafenfolge benoetigt.', true); return; }
+  const year = Number(source.validFrom.slice(0, 4)) + 1, serviceId = ship.serviceId;
+  let id = `${serviceId.toLowerCase()}-${year}`, suffix = 2;
+  while (proformasFor(ship).some((item) => item.id === id)) { id = `${serviceId.toLowerCase()}-${year}-${suffix}`; suffix++; }
+  const delta = Date.UTC(year, 0, 1) - Date.UTC(Number(source.validFrom.slice(0, 4)), 0, 1);
+  proformaDraft = {...clone(source), id, name: `${serviceId}/${year}`, validFrom: `${year}-01-01`, stops: source.stops.map((stop) => ({...stop, arrival: iso(instant(stop.arrival) + delta), departure: iso(instant(stop.departure) + delta)}))};
+  activeProforma = id; proformaIsNew = true; proformaDirty = true;
+  activeDate = proformaDraft.stops[0].arrival.slice(0, 10);
+  render(); focusShip();
+});
+$('#proforma-cancel').addEventListener('click', () => {
+  if (!proformaDraft || !confirm('Proforma-Entwurf verwerfen?')) return;
+  if (proformaIsNew) activeProforma = assignmentsFor(working.find((item) => item.id === selected))[0]?.proformaId || proformasFor(working.find((item) => item.id === selected))[0]?.id || null;
+  proformaDraft = clone(serviceProforma(working.find((item) => item.id === selected), activeProforma));
+  proformaDirty = false; proformaIsNew = false; render();
+});
+$('#proforma-save').addEventListener('click', async () => {
+  if (!proformaDraft || !proformaDirty || saving) return;
+  const candidate = {...clone(proformaDraft), name: $('#proforma-name').value.trim(), validFrom: $('#proforma-start').value, repeatWeeks: Number($('#proforma-weeks').value)};
+  if (!candidate.name || !candidate.validFrom || !Number.isInteger(candidate.repeatWeeks) || candidate.repeatWeeks < 1 || candidate.repeatWeeks > 104) { notify('Name, Geltungsbeginn und Zyklus pruefen.', true); return; }
+  saving = true; $('#proforma-save').disabled = true;
+  try {
+    const ship = working.find((item) => item.id === selected), method = proformaIsNew ? 'POST' : 'PUT';
+    const path = `/api/services/${encodeURIComponent(ship.serviceId)}/proformas${proformaIsNew ? '' : `/${encodeURIComponent(candidate.id)}`}`;
+    const response = await fetch(path, {method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dataSignature: saved.dataSignature, proforma: candidate})});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Proforma konnte nicht gespeichert werden.');
+    saved = result; working = clone(saved.ships); proformaDraft = clone(serviceProforma(working.find((item) => item.id === selected), candidate.id));
+    proformaDirty = false; proformaIsNew = false; history = []; future = []; render();
+    notify('Dienst-Proforma gespeichert.');
+  } catch (error) { notify(error.message, true); }
+  finally { saving = false; renderProformaControls(); }
+});
+$('#proforma-service').addEventListener('change', (event) => {
+  if (proformaDirty && !confirm('Ungespeicherte Proforma-Aenderungen verwerfen?')) { event.target.value = selectedService; return; }
+  const ship = working.find((item) => item.serviceId === event.target.value);
+  if (!ship) { notify('Dieser Dienst hat keine Schiffe.', true); event.target.value = selectedService; return; }
+  selected = ship.id; selectedService = ship.serviceId;
+  activeProforma = assignmentsFor(ship)[0]?.proformaId || proformasFor(ship)[0]?.id || null;
+  proformaDraft = clone(serviceProforma(ship, activeProforma));
+  proformaDirty = false; proformaIsNew = false; render(); focusShip();
+});

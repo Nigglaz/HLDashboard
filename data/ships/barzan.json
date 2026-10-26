@@ -1,0 +1,9 @@
+{
+  "id": "barzan",
+  "voyages": {},
+  "name": "Barzan",
+  "vesselName": "BARZAN",
+  "serviceId": "NE2",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

@@ -1,0 +1,99 @@
+{
+  "id": "mayview_maersk",
+  "voyages": {
+    "2026-11-07": {
+      "proformaId": null,
+      "stops": [
+        {
+          "id": "import-maersk-2026-11-07-1",
+          "portId": "london",
+          "berth": 3,
+          "arrival": "2026-11-07T19:00",
+          "departure": "2026-11-09T09:00",
+          "transitMinutes": 0,
+          "source": {
+            "provider": "maersk",
+            "portName": "London Gateway",
+            "terminalName": "London Gateway Terminal",
+            "arrivalVoyage": "639W",
+            "departureVoyage": "646E"
+          }
+        },
+        {
+          "id": "import-maersk-2026-11-07-2",
+          "portId": "bremerhaven",
+          "berth": 1,
+          "arrival": "2026-11-11T06:00",
+          "departure": "2026-11-12T22:00",
+          "transitMinutes": 2700,
+          "source": {
+            "provider": "maersk",
+            "portName": "Bremerhaven",
+            "terminalName": "NTB North Sea Terminal Bremerhaven",
+            "arrivalVoyage": "639W",
+            "departureVoyage": "646E"
+          }
+        },
+        {
+          "id": "import-maersk-2026-11-07-3",
+          "portId": "hamburg",
+          "berth": 2,
+          "arrival": "2026-11-13T19:00",
+          "departure": "2026-11-15T22:00",
+          "transitMinutes": 1260,
+          "source": {
+            "provider": "maersk",
+            "portName": "Hamburg",
+            "terminalName": "Eurogate Container Terminal Hamburg",
+            "arrivalVoyage": "639W",
+            "departureVoyage": "646E"
+          }
+        },
+        {
+          "id": "import-maersk-2026-11-07-4",
+          "portId": "rotterdam",
+          "berth": 2,
+          "arrival": "2026-11-17T12:00",
+          "departure": "2026-11-18T11:00",
+          "transitMinutes": 2280,
+          "source": {
+            "provider": "maersk",
+            "portName": "Rotterdam",
+            "terminalName": "APM 2 Terminal Maasvlakte II",
+            "arrivalVoyage": "639W",
+            "departureVoyage": "646E"
+          }
+        },
+        {
+          "id": "import-maersk-2026-11-07-5",
+          "portId": "algeciras",
+          "berth": 1,
+          "arrival": "2026-11-23T20:00",
+          "departure": "2026-11-24T14:00",
+          "transitMinutes": 7740,
+          "source": {
+            "provider": "maersk",
+            "portName": "Algeciras",
+            "terminalName": "Algeciras - ML Terminal",
+            "arrivalVoyage": "646E",
+            "departureVoyage": "646E"
+          }
+        }
+      ],
+      "import": {
+        "source": "maersk",
+        "vesselName": "MAYVIEW MAERSK",
+        "fetchedAt": "2026-10-25T22:26:38+00:00",
+        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=1PM&fromDate=2026-10-25",
+        "timeBasis": "unconfirmed",
+        "fromDate": "2026-10-25",
+        "toDate": "2027-03-01"
+      }
+    }
+  },
+  "name": "Mayview Maersk",
+  "vesselName": "MAYVIEW MAERSK",
+  "serviceId": "NE4",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

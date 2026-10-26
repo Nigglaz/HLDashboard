@@ -1,0 +1,69 @@
+{
+  "id": "munich_maersk",
+  "voyages": {
+    "2026-10-26": {
+      "proformaId": null,
+      "stops": [
+        {
+          "id": "import-maersk-2026-10-26-1",
+          "portId": "hamburg",
+          "berth": 2,
+          "arrival": "2026-10-26T16:30",
+          "departure": "2026-10-27T14:30",
+          "transitMinutes": 0,
+          "source": {
+            "provider": "maersk",
+            "portName": "Hamburg",
+            "terminalName": "Eurogate Container Terminal Hamburg",
+            "arrivalVoyage": "636W",
+            "departureVoyage": "643E"
+          }
+        },
+        {
+          "id": "import-maersk-2026-10-26-2",
+          "portId": "rotterdam",
+          "berth": 2,
+          "arrival": "2026-10-27T23:00",
+          "departure": "2026-10-29T10:00",
+          "transitMinutes": 510,
+          "source": {
+            "provider": "maersk",
+            "portName": "Rotterdam",
+            "terminalName": "APM 2 Terminal Maasvlakte II",
+            "arrivalVoyage": "636W",
+            "departureVoyage": "643E"
+          }
+        },
+        {
+          "id": "import-maersk-2026-10-26-3",
+          "portId": "algeciras",
+          "berth": 1,
+          "arrival": "2026-11-03T20:00",
+          "departure": "2026-11-04T14:00",
+          "transitMinutes": 7800,
+          "source": {
+            "provider": "maersk",
+            "portName": "Algeciras",
+            "terminalName": "Algeciras - ML Terminal",
+            "arrivalVoyage": "643E",
+            "departureVoyage": "643E"
+          }
+        }
+      ],
+      "import": {
+        "source": "maersk",
+        "vesselName": "MUNICH MAERSK",
+        "fetchedAt": "2026-10-25T22:26:44+00:00",
+        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=Y25&fromDate=2026-10-25",
+        "timeBasis": "unconfirmed",
+        "fromDate": "2026-10-25",
+        "toDate": "2027-03-01"
+      }
+    }
+  },
+  "name": "Munich Maersk",
+  "vesselName": "MUNICH MAERSK",
+  "serviceId": "NE4",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

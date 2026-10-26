@@ -1,0 +1,9 @@
+{
+  "id": "manila_express",
+  "voyages": {},
+  "name": "Manila Express",
+  "vesselName": "MANILA EXPRESS",
+  "serviceId": "NE2",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

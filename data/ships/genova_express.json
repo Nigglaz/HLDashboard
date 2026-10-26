@@ -1,0 +1,103 @@
+{
+  "id": "genova_express",
+  "name": "Genova Express",
+  "vesselName": "GENOVA EXPRESS",
+  "serviceId": "NE2",
+  "voyages": {
+    "2026-11-14": {
+      "proformaId": "ne2-2026",
+      "stops": [
+        {
+          "id": "genova-rotterdam",
+          "portId": "rotterdam",
+          "berth": 1,
+          "arrival": "2026-11-14T11:00",
+          "departure": "2026-11-16T00:01",
+          "transitMinutes": 0,
+          "source": {
+            "provider": "maersk",
+            "portName": "Rotterdam",
+            "terminalName": "APM 2 Terminal Maasvlakte II",
+            "arrivalVoyage": "639W",
+            "departureVoyage": "646E"
+          }
+        },
+        {
+          "id": "genova-hamburg",
+          "portId": "hamburg",
+          "berth": 1,
+          "arrival": "2026-11-17T23:00",
+          "departure": "2026-11-19T10:00",
+          "transitMinutes": 2819,
+          "source": {
+            "provider": "maersk",
+            "portName": "Hamburg",
+            "terminalName": "Eurogate Container Terminal Hamburg",
+            "arrivalVoyage": "639W",
+            "departureVoyage": "646E"
+          }
+        },
+        {
+          "id": "genova-antwerp",
+          "portId": "antwerp",
+          "berth": 1,
+          "arrival": "2026-11-21T06:00",
+          "departure": "2026-11-23T22:00",
+          "transitMinutes": 2640,
+          "source": {
+            "provider": "maersk",
+            "portName": "Antwerp",
+            "terminalName": "PSA Antwerp K913 Noordzee",
+            "arrivalVoyage": "639W",
+            "departureVoyage": "646E"
+          }
+        },
+        {
+          "id": "genova-london",
+          "portId": "london",
+          "berth": 1,
+          "arrival": "2026-11-24T12:00",
+          "departure": "2026-11-26T23:00",
+          "transitMinutes": 840,
+          "source": {
+            "provider": "maersk",
+            "portName": "London Gateway",
+            "terminalName": "London Gateway Terminal",
+            "arrivalVoyage": "639W",
+            "departureVoyage": "646E"
+          }
+        },
+        {
+          "id": "genova-tangier",
+          "portId": "tangier",
+          "berth": 1,
+          "arrival": "2026-12-01T03:00",
+          "departure": "2026-12-02T01:00",
+          "transitMinutes": 6000,
+          "source": {
+            "provider": "maersk",
+            "portName": "Port Tangier Mediterranee",
+            "terminalName": "TC3 Tanger Alliance Terminal",
+            "arrivalVoyage": "639W",
+            "departureVoyage": "646E"
+          }
+        }
+      ],
+      "import": {
+        "source": "maersk",
+        "vesselName": "GENOVA EXPRESS",
+        "fetchedAt": "2026-10-25T21:33:58+00:00",
+        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=JO2&fromDate=2026-10-25",
+        "timeBasis": "unconfirmed"
+      }
+    }
+  },
+  "maxSpeedKnots": 20,
+  "proformaAssignments": [
+    {
+      "proformaId": "ne2-2026",
+      "validFrom": "2026-01-01",
+      "offsetWeeks": 5
+    }
+  ]
+}

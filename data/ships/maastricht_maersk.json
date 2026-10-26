@@ -1,0 +1,69 @@
+{
+  "id": "maastricht_maersk",
+  "voyages": {
+    "2026-11-28": {
+      "proformaId": null,
+      "stops": [
+        {
+          "id": "import-maersk-2026-11-28-1",
+          "portId": "london",
+          "berth": 3,
+          "arrival": "2026-11-28T14:00",
+          "departure": "2026-11-30T04:00",
+          "transitMinutes": 0,
+          "source": {
+            "provider": "maersk",
+            "portName": "London Gateway",
+            "terminalName": "London Gateway Terminal",
+            "arrivalVoyage": "643W",
+            "departureVoyage": "649E"
+          }
+        },
+        {
+          "id": "import-maersk-2026-11-28-2",
+          "portId": "bremerhaven",
+          "berth": 1,
+          "arrival": "2026-12-02T06:00",
+          "departure": "2026-12-03T22:00",
+          "transitMinutes": 3000,
+          "source": {
+            "provider": "maersk",
+            "portName": "Bremerhaven",
+            "terminalName": "NTB North Sea Terminal Bremerhaven",
+            "arrivalVoyage": "643W",
+            "departureVoyage": "649E"
+          }
+        },
+        {
+          "id": "import-maersk-2026-11-28-3",
+          "portId": "hamburg",
+          "berth": 2,
+          "arrival": "2026-12-04T15:00",
+          "departure": "2026-12-06T18:00",
+          "transitMinutes": 1020,
+          "source": {
+            "provider": "maersk",
+            "portName": "Hamburg",
+            "terminalName": "Eurogate Container Terminal Hamburg",
+            "arrivalVoyage": "643W",
+            "departureVoyage": "649E"
+          }
+        }
+      ],
+      "import": {
+        "source": "maersk",
+        "vesselName": "MAASTRICHT MAERSK",
+        "fetchedAt": "2026-10-25T22:25:38+00:00",
+        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=Y34&fromDate=2026-10-25",
+        "timeBasis": "unconfirmed",
+        "fromDate": "2026-10-25",
+        "toDate": "2027-03-01"
+      }
+    }
+  },
+  "name": "Maastricht Maersk",
+  "vesselName": "MAASTRICHT MAERSK",
+  "serviceId": "NE4",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

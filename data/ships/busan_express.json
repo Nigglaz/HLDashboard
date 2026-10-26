@@ -1,0 +1,130 @@
+{
+  "id": "busan_express",
+  "maxSpeedKnots": 20,
+  "name": "Busan Express",
+  "vesselName": "BUSAN EXPRESS",
+  "serviceId": "NE2",
+  "voyages": {
+    "2027-01-16": {
+      "proformaId": "ne2-2026",
+      "stops": [
+        {
+          "id": "busan-rotterdam",
+          "portId": "rotterdam",
+          "berth": 1,
+          "arrival": "2027-01-16T11:00",
+          "departure": "2027-01-18T00:01",
+          "transitMinutes": 0,
+          "source": {
+            "provider": "maersk",
+            "portName": "Rotterdam",
+            "terminalName": "APM 2 Terminal Maasvlakte II",
+            "arrivalVoyage": "649W",
+            "departureVoyage": "703E"
+          }
+        },
+        {
+          "id": "busan-hamburg",
+          "portId": "hamburg",
+          "berth": 1,
+          "arrival": "2027-01-19T23:00",
+          "departure": "2027-01-21T10:00",
+          "transitMinutes": 2819,
+          "source": {
+            "provider": "maersk",
+            "portName": "Hamburg",
+            "terminalName": "Eurogate Container Terminal Hamburg",
+            "arrivalVoyage": "649W",
+            "departureVoyage": "703E"
+          }
+        },
+        {
+          "id": "busan-antwerp",
+          "portId": "antwerp",
+          "berth": 1,
+          "arrival": "2027-01-23T06:00",
+          "departure": "2027-01-25T22:00",
+          "transitMinutes": 2640,
+          "source": {
+            "provider": "maersk",
+            "portName": "Antwerp",
+            "terminalName": "PSA Antwerp K913 Noordzee",
+            "arrivalVoyage": "649W",
+            "departureVoyage": "703E"
+          }
+        },
+        {
+          "id": "busan-london",
+          "portId": "london",
+          "berth": 1,
+          "arrival": "2027-01-26T12:00",
+          "departure": "2027-01-28T23:00",
+          "transitMinutes": 840,
+          "source": {
+            "provider": "maersk",
+            "portName": "London Gateway",
+            "terminalName": "London Gateway Terminal",
+            "arrivalVoyage": "649W",
+            "departureVoyage": "703E"
+          }
+        },
+        {
+          "id": "busan-tangier",
+          "portId": "tangier",
+          "berth": 1,
+          "arrival": "2027-02-02T03:00",
+          "departure": "2027-02-03T01:00",
+          "transitMinutes": 6000,
+          "source": {
+            "provider": "maersk",
+            "portName": "Port Tangier Mediterranee",
+            "terminalName": "TC3 Tanger Alliance Terminal",
+            "arrivalVoyage": "649W",
+            "departureVoyage": "703E"
+          }
+        }
+      ],
+      "import": {
+        "source": "maersk",
+        "vesselName": "BUSAN EXPRESS",
+        "fetchedAt": "2026-10-25T21:10:53+00:00",
+        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=IE8&fromDate=2027-01-01",
+        "timeBasis": "unconfirmed"
+      }
+    },
+    "2026-10-10": {
+      "proformaId": "ne2-2026",
+      "stops": [
+        {
+          "id": "busan-tangier",
+          "portId": "tangier",
+          "berth": 1,
+          "arrival": "2026-11-01T05:00",
+          "departure": "2026-11-02T02:00",
+          "transitMinutes": 0,
+          "source": {
+            "provider": "maersk",
+            "portName": "Port Tangier Mediterranee",
+            "terminalName": "TC3 Tanger Alliance Terminal",
+            "arrivalVoyage": "633W",
+            "departureVoyage": "641E"
+          }
+        }
+      ],
+      "import": {
+        "source": "maersk",
+        "vesselName": "BUSAN EXPRESS",
+        "fetchedAt": "2026-10-25T21:33:28+00:00",
+        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=IE8&fromDate=2026-10-25",
+        "timeBasis": "unconfirmed"
+      }
+    }
+  },
+  "proformaAssignments": [
+    {
+      "proformaId": "ne2-2026",
+      "validFrom": "2026-01-01",
+      "offsetWeeks": 6
+    }
+  ]
+}

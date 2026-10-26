@@ -1,0 +1,9 @@
+{
+  "id": "marseille_maersk",
+  "voyages": {},
+  "name": "Marseille Maersk",
+  "vesselName": "MARSEILLE MAERSK",
+  "serviceId": "NE4",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

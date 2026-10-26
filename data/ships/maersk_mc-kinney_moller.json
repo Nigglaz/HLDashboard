@@ -1,0 +1,9 @@
+{
+  "id": "maersk_mc-kinney_moller",
+  "voyages": {},
+  "name": "Maersk Mc-Kinney Moller",
+  "vesselName": "Maersk Mc-Kinney Moller",
+  "serviceId": "NE4",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

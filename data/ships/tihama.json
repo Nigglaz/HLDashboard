@@ -1,0 +1,9 @@
+{
+  "id": "tihama",
+  "voyages": {},
+  "name": "Tihama",
+  "vesselName": "TIHAMA",
+  "serviceId": "NE2",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

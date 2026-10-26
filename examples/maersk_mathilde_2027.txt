@@ -1,0 +1,42 @@
+Suez Canal
+Canal Zone Terminal
+Arrival - 650W
+06 Jan 2027 23:00
+Departure - 650W
+07 Jan 2027 17:00
+London Gateway
+London Gateway Terminal
+Arrival - 650W
+16 Jan 2027 14:00
+Departure - 703E
+18 Jan 2027 04:00
+Bremerhaven
+NTB North Sea Terminal Bremerhaven
+Arrival - 650W
+20 Jan 2027 06:00
+Departure - 703E
+21 Jan 2027 22:00
+Hamburg
+Eurogate Container Terminal Hamburg
+Arrival - 650W
+22 Jan 2027 15:00
+Departure - 703E
+24 Jan 2027 18:00
+Rotterdam
+APM 2 Terminal Maasvlakte II
+Arrival - 650W
+26 Jan 2027 11:00
+Departure - 703E
+27 Jan 2027 12:00
+Algeciras
+Algeciras - ML Terminal
+Arrival - 703E
+01 Feb 2027 20:00
+Departure - 703E
+02 Feb 2027 14:00
+Suez Canal
+Canal Zone Terminal
+Arrival - 703E
+07 Feb 2027 23:00
+Departure - 703E
+08 Feb 2027 17:00

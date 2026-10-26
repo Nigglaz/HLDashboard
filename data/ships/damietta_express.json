@@ -1,0 +1,9 @@
+{
+  "id": "damietta_express",
+  "voyages": {},
+  "name": "Damietta Express",
+  "vesselName": "DAMIETTA EXPRESS",
+  "serviceId": "NE2",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

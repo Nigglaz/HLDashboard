@@ -1,0 +1,9 @@
+{
+  "id": "hanoi_express",
+  "voyages": {},
+  "name": "Hanoi Express",
+  "vesselName": "HANOI EXPRESS",
+  "serviceId": "NE2",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}

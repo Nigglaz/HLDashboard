@@ -1,0 +1,9 @@
+{
+  "id": "wilhelmshaven_express",
+  "voyages": {},
+  "name": "Wilhelmshaven Express",
+  "vesselName": "WILHELMSHAVEN EXPRESS",
+  "serviceId": "NE2",
+  "maxSpeedKnots": 20,
+  "proformaAssignments": []
+}
