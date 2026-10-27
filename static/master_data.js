@@ -38,6 +38,11 @@ function renderMasterPanel(kind) {
   $('#master-berths').required = !fleet;
   $('#master-berths').value = record?.berths ?? '';
   $('#master-aliases').value = JSON.stringify(record?.aliases || {}, null, 2);
+    $('#master-latitude').value = fleet ? '' : record?.coordinates?.latitude ?? '';
+    $('#master-longitude').value = fleet ? '' : record?.coordinates?.longitude ?? '';
+    $('#master-wind-warning').value = fleet ? '' : record?.plugins?.weather?.warningWindKnots ?? '';
+    $('#master-weather-enabled').checked = record?.plugins?.weather?.enabled !== false;
+    for (const selector of ['#master-latitude', '#master-longitude', '#master-wind-warning']) $(selector).disabled = fleet;
   $('#master-distances').innerHTML = fleet ? '' : saved.ports.filter((port) => port.id !== record?.id).map((port) => `<label>${escapeHtml(port.name)} <small>${escapeHtml(port.id)}</small><input type="number" min="0" step="0.1" data-distance-port="${escapeHtml(port.id)}" value="${record?.distancesNm?.[port.id] ?? port.distancesNm?.[record?.id] ?? ''}" required></label>`).join('');
   renderShipAssignments(fleet ? record : null);
   $('#master-plan-info').textContent = fleet ? record ? `${record.proformaAssignments.length} Proforma-Zuordnungen / ${Object.keys(record.voyages).length} gespeicherte Reisen` : 'Neues Schiff ohne Fahrplan' : '';
@@ -89,7 +94,16 @@ $('#master-form').addEventListener('submit', async (event) => {
   if (!fleet && masterRecordId && payload.id !== masterRecordId && !confirm(`Hafen-ID ${masterRecordId} in ${payload.id} umbenennen? Bestehende Fahrplan- und Dienstverweise werden angepasst.`)) return;
   try {
     if (fleet) Object.assign(payload, {vesselName: $('#master-vessel').value.trim(), serviceId: $('#master-service').value.trim(), maxSpeedKnots: Number($('#master-speed').value), proformaAssignments: readShipAssignments()});
-    else Object.assign(payload, {berths: Number($('#master-berths').value), aliases: JSON.parse($('#master-aliases').value), distancesNm: Object.fromEntries([...document.querySelectorAll('[data-distance-port]')].map((input) => [input.dataset.distancePort, Number(input.value)]))});
+    else {
+      const original = saved.ports.find((port) => port.id === masterRecordId);
+      const latitude = $('#master-latitude').value, longitude = $('#master-longitude').value;
+      if ((latitude === '') !== (longitude === '')) throw new Error('Breiten- und Laengengrad gemeinsam angeben.');
+      Object.assign(payload, {berths: Number($('#master-berths').value), aliases: JSON.parse($('#master-aliases').value),
+        distancesNm: Object.fromEntries([...document.querySelectorAll('[data-distance-port]')].map((input) => [input.dataset.distancePort, Number(input.value)])),
+        coordinates: latitude === '' ? null : {latitude: Number(latitude), longitude: Number(longitude)},
+        plugins: {...(original?.plugins || {}), weather: {...(original?.plugins?.weather || {}), enabled: $('#master-weather-enabled').checked,
+          warningWindKnots: $('#master-wind-warning').value === '' ? null : Number($('#master-wind-warning').value)}}});
+    }
     saving = true;
     $('#master-save').disabled = true;
     const path = fleet ? '/api/fleet' : '/api/ports';

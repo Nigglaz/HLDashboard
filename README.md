@@ -2,6 +2,151 @@
 
 Lokale Liegeplatzplanung fuer die in den JSON-Dateien konfigurierten Schiffe, Haefen und Dienste.
 
+## Anforderungskatalog
+
+Dieser Katalog ist die gemeinsame Grundlage fuer fachliche Abstimmungen, Erweiterungen und spaetere Abnahmetests. Die IDs bleiben bei Aenderungen erhalten; neue Anforderungen erhalten neue IDs. Anforderungen werden nicht allein durch eine Codeaenderung als fachlich abgenommen betrachtet.
+
+**Stand der Bestandsaufnahme: 27.10.2026.** "Vorhanden" beschreibt eine aktuell angebotene Funktion, keine vollstaendige fachliche Freigabe. "Teilweise" bedeutet: Ein Teil ist vorhanden, aber die Anforderung oder ihre Sonderfaelle sind noch nicht vollstaendig abgedeckt. "Offen" bedeutet: Umsetzung oder Entscheidung steht aus. Die Spalte "Abstimmung" haelt offene Regeln fest; Vorschlaege darin sind noch keine beschlossenen Anforderungen. Die folgenden Bedienungs- und Technikabschnitte beschreiben den bisherigen Stand und sind bei Aenderungen mit diesem Katalog abzugleichen.
+
+### Verantwortungsgrenzen
+
+| Bereich | Verantwortung | Abgrenzung |
+| --- | --- | --- |
+| Frontend: UI | Navigation, Kalender, Bedienung, Entwurfsanzeige, lokale Ansichten, Darstellung von Plugin-Daten. | Entscheidet keine verbindliche Reiseidentitaet, Importzuordnung oder Wetter-/Tidewarnschwelle. |
+| Backend: Fachlogik | Schiffseinsatz, Reiseidentitaet, Proforma-Zuordnung, Wiederholungen, Hafenfolge, Plausibilitaets- und Konfliktregeln. | Soll unabhaengig von Kalenderlayout und Datenanbieter pruefbar sein. |
+| Backend: Daten und Schnittstellen | Persistenz, konkurrierende Aenderungen, Importadapter, Datenvalidierung, Anmeldung und Zugriffspruefung. | Anbieterformate werden vor der fachlichen Verarbeitung normalisiert. |
+| Backend: Plugins | Datenbeschaffung und Aufbereitung fuer Wind, spaeter Tide; Einheiten, Schwellen und kritische Zeitraeume. | Liefern einen definierten Datenvertrag, keine beliebigen UI-Fragmente und keine stillen Fahrplanaenderungen. |
+| Frontend: Plugin-Renderer | Zeitposition, Zoomraster, Pfeile, Werte, Warnzeitbaender und Ein-/Ausblenden. | Wertet keine eigenen meteorologischen oder nautischen Grenzwerte aus. |
+
+### Frontend: Oberflaeche und Bedienung
+
+| ID | Anforderung / pruefbares Verhalten | Stand | Abstimmung / Sonderfaelle |
+| --- | --- | --- | --- |
+| FE-UI-001 | Das Werkzeug ist fuer Desktop-Nutzung ausgelegt; alle Kernablaeufe sind dort bedienbar. | Vorhanden | Mobile Nutzung und mobile Browserpruefungen sind derzeit nicht gefordert. |
+| FE-UI-002 | Liegeplatzplanung, Proformas, Datenimport, Flotte und Haefen sind getrennte Arbeitsbereiche. | Vorhanden | Weitere Bereiche nur bei eigenstaendigem Arbeitsablauf ergaenzen. |
+| FE-UI-003 | Ein gemeinsamer Kalender stellt Haefen, Liegeplaetze und Transitzeilen mit frei waehlbarem Zeitraum, Zoom und Scrollposition dar und nutzt die verfuegbare Fensterbreite/-hoehe auch beim Browserzoom. | Vorhanden | Keine zentrierte feste Maximalbreite fuer die Planung; genaue Flaechennutzung siehe FE-UI-014. Mindest-/Maximalzeitraum und Leistungsziel fuer grosse Flotten noch festlegen. |
+| FE-UI-004 | Auswahl, Dienstfarbe, offener Entwurf, gespeicherter Fahrplan und Proforma sind unterscheidbar; Proformas sind schraffiert. | Vorhanden | Farben und Symbole sollen auch bei Warnbaendern und Dark Mode lesbar bleiben. |
+| FE-UI-005 | Ein Aufenthalt laesst sich zeitlich verschieben, verlaengern und auf einen anderen Liegeplatz desselben Terminals setzen. | Vorhanden | Verschiebung zwischen Terminals und Bedienung ueber Tastatur gesondert abstimmen. |
+| FE-UI-006 | Das Mitnehmen folgender Aufenthalte ist waehlbar; Vorschau, Rueckgaengig/Wiederholen, Verwerfen und Einzeluebernahme bleiben getrennt. | Vorhanden | Mehrere abhaengige Schiffsentwuerfe und gemeinsame Uebernahme noch abstimmen. |
+| FE-UI-007 | Eine Hafenuebersicht zeigt ausgewaehlte Terminals und alle dortigen Schiffe dienstuebergreifend. | Vorhanden | Derzeit Vergleichsansicht, keine dienstuebergreifende Bearbeitung. |
+| FE-UI-008 | Benannte Ansichten speichern lokale Kalenderoptionen einschliesslich einklappbarer Flottenleiste; Liegezeit-Rechtecke lassen sich bei ausgeklappten Haefen optional ausblenden. | Vorhanden | Browserlokal und je Benutzer; keine rechneruebergreifende Synchronisation zugesagt. |
+| FE-UI-009 | Beim Wechsel von der Planung zum Datenimport wird das ausgewaehlte Schiff uebernommen; fremde alte Importdaten werden zurueckgesetzt. | Vorhanden | Importziel und offene Entwuerfe muessen eindeutig bleiben. |
+| FE-UI-010 | Konfigurierbare Haefen/Terminals, Schiffe und Proforma-Zuordnungen koennen ueber Formulare bearbeitet werden. | Vorhanden | Sichere Loesch-/Stilllegungsablaeufe fehlen als eigene Fachentscheidung. |
+| FE-UI-011 | Der Proforma-Bereich stellt Dienstvorlage und schiffsspezifischen Versatz getrennt dar. | Teilweise | Der aktuelle Bereich ist fuer Fahrplandetails schreibgeschuetzt; vollstaendigen Editor, Versionsanlage und Freigabe abstimmen. |
+| FE-UI-012 | Hell-/Dunkelmodus, klare Trennung der Hafen-/Transitbloecke und angeheftete Hafenbuttons bleiben bei Zoom und Scrollen erhalten. | Vorhanden | Transitzeilen sind oben und unten mit gleich starken, kontrastreichen Linien getrennt. Zwischen Hafenname und "+ Hafen hinzufuegen" steht keine zusaetzliche Liegeplatzanzahl. |
+| FE-UI-013 | Die Flotten-/Hafenauswahlleiste ist ueber einen Schalter links neben "Liegeplatzbelegung" ein- und ausklappbar; eingeklappt erhaelt der Kalender die frei werdende Breite. | Vorhanden | Aktuelles Schiff, offene Entwuerfe und Kalenderoptionen bleiben erhalten. Zustand je Benutzer im Browser und in benannten Ansichten speichern; der Schalter bleibt zum Wiedereinblenden erreichbar. |
+| FE-UI-014 | Der Planungs-Hauptbereich nutzt die gesamte Desktopfensterbreite mit schmalen Raendern; der Kalender fuellt den verbleibenden Platz bis zum unteren Fensterrand. | Vorhanden | Verkleinern per Browserzoom darf keine grosse Leerflaeche unten oder seitlich erzeugen. Kalender scrollt innerhalb seiner Flaeche; Formularbereiche bleiben normal scrollbar. Desktoppruefung auch auf grossen Fenstern, keine Mobilpruefung. |
+
+### Frontend: Plugin-Darstellung
+
+| ID | Anforderung / pruefbares Verhalten | Stand | Abstimmung / Sonderfaelle |
+| --- | --- | --- | --- |
+| FE-PLG-001 | Hafenleisten koennen mehrere Plugin-Spuren aufnehmen, ohne Hafenname, Aktionen oder Planungsbalken zu ueberdecken. | Vorhanden | Platzverteilung bei vielen Plugins oder sehr schmalen Desktopfenstern festlegen. |
+| FE-PLG-002 | Plugin-Werte werden anhand ihrer UTC-Zeit im Kalender positioniert; beim Herauszoomen entstehen gleichmaessige feste Zeitraster von 3/6/12/24/48/96 Stunden usw., passend zum verfuegbaren Platz. | Vorhanden | Scrollen verschiebt das Raster nicht. Originalwerte am Rasterzeitpunkt zeigen, nicht den staerksten Wert an einer anderen Uhrzeit. Fehlende Werte nicht erfinden; Warnzeitbaender nach FE-PLG-004 separat erhalten. |
+| FE-PLG-003 | Wind wird in kn mit reiner Richtungsspitze aus zwei Strichen angezeigt, ohne Stamm und ohne Kreis. Ueber 10 kn erscheinen ganze Zahlen, bis einschliesslich 10 kn maximal eine Nachkommastelle. | Vorhanden | Die Spitze darf die Zahl in keiner Windrichtung ueberdecken und zeigt die Richtung, in die der Wind weht. Herkunftsrichtung und genauer Wert stehen im Tooltip; siehe FE-PLG-010. |
+| FE-PLG-004 | Der gesamte vom Plugin als kritisch gemeldete Zeitraum erscheint als durchgehendes rotes Hintergrundband, auch zwischen ausgeblendeten Zahlenrasterpunkten. | Vorhanden | Nur der Zeitraumshintergrund ist rot; Windfelder und Pfeilhintergruende bleiben transparent, ohne zusaetzliche rote Einzelkaesten. Unkritische Nachbarwerte nicht kuenstlich als kritisch umfaerben. Fachliche Zeitgrenzen liefert das Plugin im verfuegbaren Datenraster; Luecken nicht ueberbruecken. |
+| FE-PLG-005 | Ein Wind-Button direkt rechts neben "Heute" in der Kalenderkopfzeile schaltet Windwerte und Warnzeitbaender gemeinsam ein/aus; derselbe Zustand wird im Plugin-Menue angezeigt. | Vorhanden | Button-Zustand erkennbar darstellen und je Benutzer im Browser speichern. Die gemeinsame Hafenaktivierung wird dadurch nicht ueberschrieben; weitere Plugins bleiben getrennt schaltbar. |
+| FE-PLG-006 | Ladefehler, fehlende Koordinaten, veraltete Daten und Zeitraeume ohne Daten zerstoeren den Kalender nicht. | Vorhanden | Verhalten bei ausschliesslich teilweise vorhandenen Zeitreihen weiter konkretisieren. |
+| FE-PLG-007 | Tide soll mit eigener Einheit, eigenem Zeitverlauf und eigenen Warnbaendern darstellbar sein. | Offen | Darstellung als Zahl, Kurve, Hoch-/Niedrigwasserereignis oder Kombination entscheiden. |
+| FE-PLG-008 | Windanzeigen werden so dicht wie lesbar dargestellt; beim Herauszoomen wird erst ausgeduennt, wenn Zahl/Pfeil nicht mehr ausreichend Platz haben. Die Abstaende bleiben regelmaessig. | Vorhanden | Aktuelle UI-Referenz: Feld 32 x 34 CSS-Pixel, Mindestabstand fuer Rasterwahl 37 CSS-Pixel. Dies ersetzt die zwischenzeitlichen 64/40/32-Pixel-Abstaende. Schriftgroesse nicht zum Verdichten reduzieren; bei spaeteren Aenderungen Lesbarkeit und alle Richtungen pruefen. |
+| FE-PLG-009 | Neue Winddaten werden nach Ablauf der vom Server gemeldeten Cache-Laufzeit automatisch in der bestehenden Website nachgeladen; manuelles Neuladen ist nicht erforderlich. | Vorhanden | Server liefert `refreshAfterSeconds`; kein Keepalive zur Nutzererkennung hinzufuegen. Serverseitigen Abruf, Stundenfrist, Dateicache und Neustartverhalten getrennt in BE-PLG-003 regeln. |
+| FE-PLG-010 | Wind-Tooltips zeigen Zeitpunkt in UTC, Einheit, genaueren Windwert, meteorologische Herkunftsrichtung, Datenquelle und Abrufstand; Warnbaender nennen Anfang, Ende und Warnbeschreibung. | Vorhanden | Gerundete Zahl und Richtungsspitze ersetzen nicht den genauen Wert bzw. die Herkunftsrichtung im Tooltip. Veraltete Daten kennzeichnen; die angezeigte Genauigkeit bleibt durch die Anbieterwerte begrenzt. |
+| FE-PLG-011 | Die UI stellt nur den vom Anbieter tatsaechlich gelieferten Zeitbereich dar und laesst fehlende Werte offen, auch wenn ein laengerer Horizont angefragt wurde. | Vorhanden | Aktuell bis 16 Kalendertage einschliesslich Heute und zehn Tage Rueckblick angefragt, siehe BE-PLG-002. Ausserhalb des Zeitfensters Hinweis statt erfundener Windwerte; keine Vollstaendigkeit bis zum letzten angefragten Zeitpunkt zusagen. |
+
+### Konkretisierte UI-Abnahmebeispiele
+
+Diese Beispiele dokumentieren die zuletzt praezisierten UI-Wuensche. Sie ersetzen keine fachliche Abnahme; insbesondere legt das Plugin die Wettergrenzen fest, nicht der Renderer.
+
+| Anforderungen | Ausgangslage / Aktion | Erwartete Anzeige |
+| --- | --- | --- |
+| FE-PLG-002/008 | Herauszoomen reduziert ein 3-Stunden-Raster auf 6, 12 oder 24 Stunden; anschliessend horizontal scrollen. | Die vorhandenen Rasterwerte behalten gleichmaessige Zeit-/Pixelabstaende. Kein Springen zu zufaellig staerkeren Werten innerhalb eines Zeitblocks. |
+| FE-PLG-003/010 | Windwert 9,6 kn bzw. 10,6 kn; Richtung nacheinander in acht Hauptrichtungen anzeigen. | Zahl 9,6 bzw. 11 mit reiner Pfeilspitze ohne Kreis/Stamm. Spitze und Zahl beruehren sich nicht; der Tooltip erhaelt den genaueren Wert. |
+| FE-PLG-004 | Im 6-Stunden-Anzeigeraster sind 00 und 06 Uhr unkritisch, das Plugin meldet 03-06 Uhr als kritisch. | Das Band 03-06 Uhr bleibt rot sichtbar, obwohl um 03 Uhr keine Zahl gezeichnet wird. Keine roten Kaesten hinter 00/06 Uhr; keine kuenstliche Ausdehnung auf 00-06 Uhr. |
+| FE-PLG-005 | Wind ueber den Button neben "Heute" ausschalten, dann Plugin-Menue oeffnen und die Seite neu laden. | Zahlen und Warnbaender verschwinden gemeinsam; Menue und Button zeigen "aus". Die gespeicherte Benutzerwahl bleibt erhalten. |
+| FE-UI-008/013 | Flottenleiste einklappen, benannte Ansicht speichern, wieder ausklappen und gespeicherte Ansicht laden. | Kalender gewinnt die Seitenleistenbreite; die Ansicht stellt den eingeklappten Zustand wieder her, ohne Auswahl oder offene Planentwuerfe zu verlieren. |
+| FE-UI-003/014 | Grosses Desktopfenster nutzen oder per Browserzoom mehr Uebersicht schaffen. | Kalender nutzt die verfuegbare Breite und endet weiterhin am unteren Fensterrand; kein altes 2400-Pixel-Breitenlimit bzw. 1000-Pixel-Hoehenlimit. |
+
+### Backend: Schiffe, Reisen und Proformas
+
+| ID | Anforderung / pruefbares Verhalten | Stand | Abstimmung / Sonderfaelle |
+| --- | --- | --- | --- |
+| BE-PLAN-001 | Ein Schiff besitzt eine stabile technische Identitaet; der Importname bleibt in seiner Schreibweise erhalten und wird fuer Zuordnung normalisiert verglichen. | Vorhanden | Umgang mit Umbenennung, IMO-Nummer und wiederverwendeten Namen festlegen. |
+| BE-PLAN-002 | Proformas gehoeren dem Dienst; Schiffe referenzieren sie mit Wirksamkeitsdatum und ganzzahligem Wochenversatz. | Vorhanden | Schiffseinsaetze in mehreren Diensten und unterjaehrige Wechsel gesondert definieren. |
+| BE-PLAN-003 | Solange eine Zuordnung gilt, werden Reisen im Proforma-Zyklus wiederholt; eine spaetere Zuordnung ersetzt die vorherige fuer neue Runden. | Vorhanden | Explizites Gueltigkeitsende ohne Nachfolgezuordnung ist noch offen; siehe SF-002. |
+| BE-PLAN-004 | Ein gespeicherter tatsaechlicher Fahrplan ersetzt nur seine nominelle Runde und bleibt bei zeitlicher Verschiebung dieser Runde zugeordnet. | Vorhanden | Die aktuelle Identitaet ist der nominelle Startdatumsschluessel, nicht eine unabhaengige Reise-ID. |
+| BE-PLAN-005 | Die Verknuepfung zwischen tatsaechlicher Reise und konkreter Proforma-Runde bleibt bei grosser Verspaetung und erneutem Import erhalten. | Teilweise | Gespeicherte Schluessel bleiben stabil; erneuter Import ohne Reisevorgabe ordnet derzeit zeitbasiert zu. Anbieter-Reisenummern werden noch nicht zur Wiedererkennung genutzt. |
+| BE-PLAN-006 | Ein gespeicherter Ist-Fahrplan bleibt bei Aenderung einer Dienstvorlage unveraendert. | Vorhanden | Unveraenderliche Referenzversion fuer spaetere Plan-/Ist-Vergleiche ist noch zu definieren. |
+| BE-PLAN-007 | Proforma-Versionen, Zuordnungswechsel und Wochenversatz liefern eine eindeutige gueltige Runde. | Teilweise | Wechsel waehrend einer laufenden Reise, Luecken, Enddatum und Referenzhistorie abstimmen. |
+| BE-PLAN-008 | Wiederholte Anlaeufe desselben Hafens besitzen getrennte Aufenthalts-IDs, auch wenn Terminal und Reise identisch sind. | Vorhanden | Importzuordnung bei mehreren gleichnamigen Besuchen muss gegen Verwechslung abgesichert werden; siehe SF-006. |
+| BE-PLAN-009 | Ad-hoc-Anlaeufe aendern nur die betroffene Reise, nicht automatisch die Dienstvorlage oder andere Runden. | Vorhanden | Anlauf nach dem letzten Hafen, ausgelassene Anlaeufe und bewusste Dauerabweichungen abstimmen. |
+| BE-PLAN-010 | Change of Rotation ordnet die bestehende Runde neu und berechnet Transitwerte zwischen den neuen Nachbarn. | Teilweise | Aktuell chronologische Reparatur ohne Zeitaenderung; bewusste neue Reihenfolge und dauerhafter Rotationswechsel sind gesonderte Anforderungen. |
+| BE-PLAN-011 | Transitpruefung beruecksichtigt Entfernung und Schiffsgeschwindigkeit; Liegeplatz- und Folgereiseueberschneidungen werden erkannt. | Vorhanden | Gleiches Terminal in Folge, fehlende Streckenwerte, Sicherheitsabstaende und tatsaechliche Hafenwechsel abstimmen. |
+| BE-PLAN-012 | Die Konfliktbehandlung unterscheidet manuelle Planuebernahme und Import. | Vorhanden | Derzeit blockieren neue manuelle Konflikte die Uebernahme; Importkonflikte werden gewarnt und gespeichert. Verbindliche Ausnahmen/Freigaben festlegen. |
+| BE-PLAN-013 | Phase-in, Phase-out und Ersatzschiffe steuern den Einsatz ohne Loeschen der Vergangenheit. | Offen | Regeln in SF-001 bis SF-004 beschliessen, bevor automatische Runden dafuer erzeugt werden. |
+
+### Backend: Datenhaltung und Schnittstellen
+
+| ID | Anforderung / pruefbares Verhalten | Stand | Abstimmung / Sonderfaelle |
+| --- | --- | --- | --- |
+| BE-DAT-001 | Schiffe, Dienste und Terminals haben getrennte Stammdaten; Hafen-ID-Umbenennungen erhalten Referenzen und Zeiten. | Vorhanden | Terminalzusammenlegung, Loeschen referenzierter Stammdaten und externe Schluessel klaeren. |
+| BE-DAT-002 | JSON-Speicherung, Validierung und Datenpruefsumme verhindern unbeabsichtigtes Ueberschreiben neuerer Planungsdaten. | Vorhanden | Mehrdatei-Aenderungen haben Ruecksetzung bei Schreibfehlern, aber keine absturzsichere Datenbanktransaktion. |
+| BE-DAT-003 | Mehrbenutzerbetrieb hat definierte Regeln fuer konkurrierende Entwuerfe, Konflikte und gemeinsame Uebernahmen. | Teilweise | Derzeit gemeinsame Fachdaten, lokale Entwuerfe und optimistische Pruefsumme; keine Reservierungen oder verteilten Sperren. |
+| BE-DAT-004 | Sicherung, Wiederherstellung, Migration und Aenderungshistorie sind nachvollziehbar spezifiziert. | Offen | Aufbewahrung, Ruecknahme einer Uebernahme, Audit und Datenverlustziel festlegen. |
+| BE-INT-001 | Anbieteradapter liefern ein gemeinsames Importformat mit Quelle, Schiff, Zeitraum, Hafenanlaeufen und Quellen-Reisenummern. | Vorhanden | Datenvertrag versionieren; neue Anbieter duerfen Fachlogik nicht duplizieren. |
+| BE-INT-002 | Einzel- und Dienstimport bieten Vorschau, explizite Hafenzuordnung, Ignorieren und Bestaetigung von Entfernungen und Zeitbasis. | Vorhanden | Fehler einzelner Schiffe erfordern derzeit ausdruecklichen Ausschluss statt stiller Teiluebernahme. |
+| BE-INT-003 | Import aktualisiert nur den gewaehlten Reise-/Zeitbereich; Aufenthalte ausserhalb bleiben geschuetzt. | Vorhanden | Grenze ist aktuell die Ankunft; bereits laufende Aufenthalte und Reisen ueber mehrere Fenster siehe SF-010/SF-011. |
+| BE-INT-004 | Import erkennt bereits bekannte Reisen und Aufenthalte unabhaengig von geaenderten Ankunftszeiten wieder. | Teilweise | Aktuell Runde zeitbasiert/waehlbar, Besuchsauswahl ueber Terminal und zeitliche Naehe. Stabile Anbieter-IDs und Mehrdeutigkeitsdialog fehlen. |
+| BE-INT-005 | Live-Abrufe haben Grenzen, Fehlermeldungen und einen zulaessigen manuellen Ersatzweg. | Teilweise | Maersk-Abruf und Hapag-Adapter vorhanden; Hapag-Sicherheitspruefung kann Automation blockieren. Kopier-/Dateiformate und offizielle APIs separat festlegen. |
+| BE-INT-006 | Zeitzonen und Sommerzeit werden beim Import eindeutig in gemeinsame Planzeit ueberfuehrt. | Teilweise | Derzeit ausdrueckliche Uebernahmebestaetigung fuer naive UTC-Planzeit; automatische Anbieter-/Hafenzeitzonen-Konvertierung nicht zugesagt. |
+
+### Backend: Plugins und Betrieb
+
+| ID | Anforderung / pruefbares Verhalten | Stand | Abstimmung / Sonderfaelle |
+| --- | --- | --- | --- |
+| BE-PLG-001 | Plugins liefern ueber eine registrierte Schnittstelle Metadaten, Zeitreihen, Einheiten, Status und kritische Zeitintervalle. | Vorhanden | Erweiterung erfolgt serverseitig, nicht durch hochgeladenen oder fremden Browsercode. |
+| BE-PLG-002 | Wetter wird standortbezogen in kn/Richtung mit 3-Stunden-Werten, zehn Tagen Rueckblick und maximalem Anbieter-Vorschauhorizont geliefert (aktuell 16 Kalendertage einschliesslich Heute). | Vorhanden | Modell-/API-Verfuegbarkeit begrenzt den Horizont; keine Messdatenzusage. |
+| BE-PLG-003 | Bedarfsgesteuerter Datenabruf, neustartfester Stunden-Cache, Warnschwelle und Zusammenfassung kritischer Windabschnitte liegen im Plugin. | Vorhanden | Ohne Zugriffe kein externer Hintergrundabruf und kein Keepalive; 3-Stunden-Aufloesung, stale Daten und Schwellenwerte sind keine sicherheitsverbindliche Betriebsfreigabe. |
+| BE-PLG-004 | Plugin-Ausfaelle oder deaktivierte Plugins veraendern keine Fahrplaene und blockieren deren Bedienung nicht. | Vorhanden | Rate Limits, Providerwechsel und belastbare Verfuegbarkeitsziele fuer produktiven Betrieb klaeren. |
+| BE-PLG-005 | Tide wird aus einer geeigneten Quelle mit Stationszuordnung, Hoehenbezug, Einheit und Warnregeln geliefert. | Offen | Nicht allein Koordinaten verwenden: Bezugsniveau, Pegelstation, Zeitbasis und Bezug zu Tiefgang/UKC klaeren. |
+| BE-OPS-001 | Anmeldung, Passwort-Hashes, Sitzungen und CSRF-Schutz sichern UI und Fach-APIs. | Vorhanden | Benutzeranlage erfolgt derzeit per CLI; Rollen, Leserechte und Freigaberechte sind offen. |
+| BE-OPS-002 | Produktiver Betrieb hat passende API-Lizenzen, HTTPS, Datensicherung und einen geeigneten Server. | Offen | Der aktuelle lokale Prototyp ist keine Produktionsfreigabe; Open-Meteo-Vertragsmodell beachten. |
+
+### Sonderfaelle zur fachlichen Abstimmung
+
+Diese Faelle sind ein eigener Diskussionskatalog, keine pauschale Zusage bereits implementierter Regeln. Nach einer Entscheidung werden die betroffenen Anforderungen und ein konkreter Abnahmetest ergaenzt.
+
+| Fall-ID | Fall / betroffene Anforderungen | Zu entscheidende Regel und Abnahmebeispiel |
+| --- | --- | --- |
+| SF-001 | Phase-in; BE-PLAN-002/003/013 | Einstieg ab Datum oder konkretem Anlauf? Beginnt das Schiff mitten in einer Runde, duerfen davor keine erfundenen Aufenthalte entstehen. Wer bestimmt erste Runde, Hafen und Versatz? |
+| SF-002 | Phase-out; BE-PLAN-003/007/013 | Gilt das Ende nach nominellem Rundenstart, letzter Abfahrt oder letztem erlaubten Anlauf? Beispiel: Ausstieg am 15.06. waehrend einer laufenden Runde; Vergangenheit erhalten, spaetere Fallback-Runden nicht weiter erzeugen. |
+| SF-003 | Ersatzschiff / Dienstwechsel; BE-PLAN-002/013, BE-DAT-003 | Werden Runden uebertragen, abgebrochen oder neu angelegt? Beispiel: Schiff B uebernimmt die noch offenen Anlaeufe von A; keine Doppelbelegung durch zwei aktive Fallbacks. |
+| SF-004 | Einsatzluecke / temporaere Aussetzung; BE-PLAN-003/007/013 | Unterschied zwischen unbesetzter Runde, Pause und fehlenden Daten festlegen. Nach Wiederaufnahme denselben Versatz fortsetzen oder neu verankern? |
+| SF-005 | Change of Rotation; BE-PLAN-009/010 | Einmalig fuer eine Ist-Reise oder dauerhaft als neue Dienstvorlage? Beispiel A-B-C wird A-C-B; welche Zeiten bleiben, welche Transitstrecken werden neu berechnet? |
+| SF-006 | Doppelter Hafenanlauf; BE-PLAN-008, BE-INT-004 | A-B-A muss zwei getrennte Aufenthalte behalten. Welche Quellen-ID/Reisenummer identifiziert beim erneuten Import den ersten bzw. zweiten A-Anlauf trotz Verspaetung? |
+| SF-007 | Mehrere Terminals derselben Stadt; BE-DAT-001, BE-INT-002/004 | Rotterdam MV2 und RWG sind unterschiedliche Ziele. Wann genuegt ein Alias, wann ist eine manuelle Auswahl erforderlich? Terminalwechsel darf andere Besuche nicht still umhaengen. |
+| SF-008 | Starke Verspaetung; BE-PLAN-004/005, BE-INT-004 | Runde A wird ins nominelle Fenster von B verschoben. Erneuter Import muss A zugeordnet oder zur Auswahl gestellt werden; B darf nicht wegen zeitlicher Naehe ueberschrieben werden. |
+| SF-009 | Proforma-Wechsel in laufender Reise; BE-PLAN-006/007 | Neue Jahresversion gilt ab 01.01., die alte Runde endet erst am 10.01. Welche Vorlage bleibt Referenz? Beispiel: Mathilde ab 2026 NE4/2026 +3 Wochen, ab 2027 NE4/2027 +4 Wochen. |
+| SF-010 | Import einer Teilrunde / eines laufenden Aufenthalts; BE-INT-003 | Aufenthalt beginnt vor dem Importfenster und endet darin. Ganze Station schuetzen, Abfahrt aktualisieren oder ausdruecklich nachfragen? Fehlende Quellzeile darf nicht automatisch "ausgefallen" bedeuten. |
+| SF-011 | Mehrere Runden / Split oder Merge; BE-PLAN-005, BE-INT-003/004 | Quelle enthaelt mehrere Umlaeufe oder abweichende Ankunfts-/Abfahrts-Reisenummern. Wie werden sie getrennt, verknuepft und bestaetigt? Aktuell keine automatische Mehr-Runden-Uebernahme. |
+| SF-012 | Auslassen / Hinzufuegen / Abbruch; BE-PLAN-008/009, BE-INT-002 | Bewusster ausgelassener Hafen vs. fehlende Daten, neuer Anlauf vor/nach der Route und Teilabbruch unterscheiden. Gilt die Aenderung nur fuer diese Reise oder fuer kuenftige Runden? |
+| SF-013 | Konflikte und Freigaben; BE-PLAN-011/012 | Was ist Hinweis, Warnung oder harter Fehler? Beispiel: Import mit zu kurzer Transitzeit wird gespeichert; darf dieselbe Situation manuell bestaetigt werden, und muss eine Begruendung protokolliert werden? |
+| SF-014 | Wetter-/Tidegrenze; BE-PLG-002/003/005 | Vergleich ab Grenzwert inklusive? Was passiert bei Datenluecken, Stationswechsel oder veralteten Daten? Warnung an einem Termin von Warnung innerhalb eines Zeitbereichs unterscheiden. |
+
+### Entscheidungen und Abnahmekriterien pflegen
+
+Zu einer abgestimmten Anforderung werden die folgenden Felder ergaenzt, beispielsweise direkt unter der betroffenen Tabelle. Einfache UI-Wuensche muessen dabei nicht zu einem eigenen Dokument werden.
+
+| Feld | Inhalt |
+| --- | --- |
+| Referenz | Anforderungs-ID und gegebenenfalls SF-ID. |
+| Entscheidung | Beschlossene Regel, ausdrueckliche Ausnahmen und Umfang (ein Aufenthalt, eine Reise, ein Schiff oder ganzer Dienst). |
+| Datenbezug | Verwendete Identitaeten, nominelle Runde, Wirksamkeitsbeginn/-ende und relevante Zeitbasis. |
+| Abnahmekriterium | Gegeben konkrete Ausgangsdaten; wenn eine Aktion erfolgt; dann konkrete erwartete Daten und Anzeige, inklusive unveraenderter Daten. |
+| Nachweis | Testfall oder manuelle Desktoppruefung; umgesetzt, geprueft und fachlich abgenommen getrennt vermerken. |
+| Aenderung | Datum und Bezug zur vorherigen Entscheidung; IDs nicht still umdeuten. |
+
+Empfohlener Beginn der Abstimmung: SF-001/SF-002 (Einsatzgrenzen), SF-008 (Reiseidentitaet trotz Verspaetung) und SF-009 (Proforma-Wechsel). Diese Entscheidungen beeinflussen Datenmodell und Importe und sollten vor zusaetzlicher Automatik geklaert werden.
+
 ## Start
 
 Aus diesem Ordner:
@@ -48,8 +193,45 @@ Lokale Ansichten und Entwuerfe werden jetzt pro E-Mail getrennt gespeichert. Die
 
 Fuer den Heimnetztest bleiben HTTP-Cookies moeglich. Vor einer Internetfreigabe HTTPS und einen Produktionsserver einrichten; bei HTTPS `PHOCA_HTTPS=1` setzen, damit Sitzungscookies nur verschluesselt uebertragen werden. Login allein ersetzt diese Betriebsabsicherung nicht. Die Dateiverwaltung und Anmeldebegrenzung sind weiterhin fuer eine einzelne Serverinstanz ausgelegt.
 
+## Hafen-Plugins und Wind
+
+Unter "Haefen" sind Breiten-/Laengengrad (WGS84), "Wind-Plugin aktiv" und eine optionale Windwarnschwelle in Knoten einstellbar. Fuer die sieben bisherigen Haefen wurden ungefaehre Terminalpositionen vorbelegt; vor betrieblicher Nutzung pruefen und gegebenenfalls korrigieren. Eine leere Warnschwelle deaktiviert Warnfarben, nicht die Windanzeige. Koordinaten und Plugin-Einstellungen liegen am Hafeneintrag in `data/ports.json`:
+
+```json
+"coordinates": {"latitude": 51.952, "longitude": 4.028},
+"plugins": {"weather": {"enabled": true, "warningWindKnots": 25}}
+```
+
+Der Button "Wind" neben "Heute" schaltet Windwerte und Warnzeitbaender gemeinsam um. Dieselbe Auswahl ist unter "Liegeplaetze & Ansicht" -> "Hafen-Plugins" verfuegbar und wird je Benutzer lokal gespeichert. Das Deaktivieren am Hafen ist dagegen eine gemeinsame Stammdateneinstellung und verhindert dort Wetterabrufe. Die Anzeige nutzt nur den sichtbaren horizontalen Kalenderausschnitt. Auf Mobilgeraeten liegt sie in einer zweiten festen Zeile im Hafenband, damit Hafenname und Buttons frei bleiben.
+
+Das erste Plugin fragt Open-Meteo serverseitig nach 10-m-Windgeschwindigkeit und Windrichtung ab: zehn vergangene Tage und den maximalen Forecast-API-Horizont von 16 Kalendertagen einschliesslich Heute, also bis zu 15 folgende Kalendertage in UTC. Je nach Modell und Standort koennen die letzten gueltigen Werte frueher enden; es werden nur tatsaechlich gelieferte Werte angezeigt. Aus den stuendlichen Modellwerten werden die Zeitpunkte 00/03/06/09/12/15/18/21 Uhr geliefert. Das sind Wettermodellwerte, keine Terminalmessung und keine sicherheitsverbindliche Freigabe. Fehlen einzelne API-Werte, werden sie nicht erfunden. Vergangenheitswerte stammen aus dem vom Anbieter gelieferten Modellverlauf, nicht aus einer lokalen Messhistorie.
+
+Die Zahl ist Wind in kn, mit einer reinen Pfeilspitze ohne Stamm oder Kreis. Windwerte ueber 10 kn erscheinen als ganze Zahlen; kleinere Werte mit maximal einer Nachkommastelle. Der Pfeil zeigt, wohin der Wind weht; im Tooltip steht die meteorologische Herkunftsrichtung (z. B. "Wind aus 270 Grad" = aus Westen, Pfeil nach Osten), der UTC-Zeitpunkt und Abrufstand. Beim Herauszoomen wird nicht jeder 3-Stunden-Wert gezeichnet. Die UI verwendet feste, UTC-verankerte Raster von 3/6/12/24/48/96 Stunden usw., passend zum Zoom und mit gleichmaessigem Abstand. Gezeigt wird der jeweilige Originalwert am Rasterzeitpunkt, nicht der Maximalwert eines Zeitblocks. Fehlende Werte werden nicht interpoliert.
+
+Kritische Windzeitraeume erscheinen zusaetzlich als rote Baender hinter den Werten, unabhaengig vom Zoom und Zahlenraster. Die Zahlen an unkritischen Nachbarzeitpunkten werden nicht kuenstlich als kritisch umgefaerbt. Das Plugin bewertet jeden verfuegbaren 3-Stunden-Wert fuer den folgenden 3-Stunden-Abschnitt und fuehrt direkt benachbarte kritische Abschnitte zusammen. Ein kritischer Wert um 03 Uhr mit unkritischem Folgewert um 06 Uhr markiert also 03-06 Uhr. Das ist eine Darstellung im Datenraster, keine minutengenaue Aussage ueber den Schwellenuebertritt. Datenluecken werden nicht ueberbrueckt; im Tooltip stehen Zeitraum und maximaler Windwert. Der Renderer schneidet Baender am sichtbaren Ausschnitt ab, ohne ihre fachlichen Start-/Endzeiten zu veraendern.
+
+Der Server puffert Wetterdaten im Normalfall eine Stunde je Standort im Arbeitsspeicher und atomar in `instance/weather-cache/`. Cache-Dateien enthalten Datenversion, Standort-/Abfragekennung, aufbereitete Windwerte, `fetchedAt` und `expiresAt`; keine API-Schluessel oder Warnschwellen. Die Schwellen werden aus den aktuellen Hafeneinstellungen auf die gespeicherten Werte angewendet. Gleichzeitige Anfragen teilen sich denselben externen Abruf. Nach einem Serverneustart wird beim ersten Bedarf zuerst die Cache-Datei gelesen: Ist sie noch gueltig, bleibt ihre urspruengliche Ablaufzeit bestehen und es gibt keinen neuen Anbieterabruf. Ein Tageswechsel allein verwirft den Cache nicht. Fehlende, beschaedigte, unpassende oder abgelaufene Dateien fuehren bei Bedarf zu einem neuen Abruf. Kann die Datei nicht geschrieben werden, funktioniert der RAM-Cache weiter und der Server protokolliert einen Hinweis. Das gesamte `instance/`-Verzeichnis bleibt von Git ausgeschlossen.
+
+Es gibt keinen stuendlichen Serverjob und keinen Keepalive zur Nutzererkennung. Ohne Wetteranfragen wird nichts extern abgefragt. Die geoeffnete Website verwendet einen normalen Timer fuer den Ablauf der Winddaten und aktualisiert die Werte per API im bestehenden Kalender; die Seite muss dafuer nicht neu geladen werden. Die UI speichert Daten bis zum Cache-Ablauf. Der Server liefert die verbleibende Laufzeit als `refreshAfterSeconds`, damit spaeter geoeffnete Browser alte Daten nicht eine weitere volle Stunde festhalten. Scrollen, Zoom, mehrere Benutzer und ein Browser-Neuladen erzwingen keinen neuen Wetteranbieter-Abruf, solange der Servercache gueltig ist. Die unabhaengige automatische Aktualisierung von Fahrplandaten ist kein externer Wetterabruf.
+
+Bei Abruffehlern werden vorhandene Werte, auch aus einer abgelaufenen Cache-Datei nach Neustart, als veraltet markiert; andernfalls erscheint ein Hinweis statt eines kaputten Kalenders. Nach einem Fehler wird fruehestens nach fuenf Minuten erneut extern abgefragt. Plugin-Daten und Cache-Zeitstempel fliessen nicht in Fahrplan-JSONs, Planentwuerfe oder deren Signaturen ein. Die Abrufbuendelung gilt fuer die vorgesehene einzelne Serverinstanz; mehrere unabhaengige Prozesse haben keine verteilte Abrufsperre.
+
+Die freie Open-Meteo-API ist laut Anbieter nur fuer nichtkommerzielle Nutzung und weniger als 10.000 Abrufe pro Tag gedacht. Fuer kommerziellen Betrieb einen passenden Open-Meteo-Vertrag und `OPEN_METEO_API_KEY` in der Serverumgebung hinterlegen; dann wird automatisch `customer-api.open-meteo.com` verwendet. Den Schluessel nicht in Hafen-JSONs oder Git speichern. Quellenattribution ist im Plugin-Menue verlinkt. Bedingungen: https://open-meteo.com/en/terms ; API-Dokumentation: https://open-meteo.com/en/docs .
+
+### Schnittstelle fuer weitere Plugins
+
+`port_plugins.py` enthaelt `PortPluginRegistry` und das unabhaengige `WeatherPlugin`. Weitere Module, etwa ein `TidePlugin`, implementieren `id`, `metadata()` und `track(port, start, end)` und werden in der Registry registriert. Abruf, Einheitenumrechnung, Modell-/Stationswahl, Warnschwellen und Prioritaeten gehoeren ins jeweilige Plugin. Im Browser werden keine fremden Plugin-Skripte oder HTML-Fragmente ausgefuehrt. Tide-Datenabruf ist noch nicht implementiert.
+
+- `GET /api/port-plugins`: `schemaVersion: 1` und Plugin-Metadaten (`id`, `label`, `presentation`, `unit`, `intervalMinutes`, `source`, optionales `window` mit `from`/`to`).
+- `GET /api/ports/<id>/plugins?start=<UTC-Planzeit>&end=<UTC-Planzeit>&plugins=weather,tide`: `schemaVersion: 1`, `portId`, `timeBasis: "UTC"` und `tracks`. Beide Endpunkte verlangen Anmeldung.
+- Ein Track enthaelt Metadaten, `status` (`ready`, `stale`, `error`, `empty`, `unconfigured`, `disabled`, `out-of-range`), optionalen Hinweis/Abrufstand, `samples` und optionale `periods`. Jeder Zeitraum hat `start`/`end` (UTC, Ende exklusiv), `state` (`warning`/`danger`) und optional `label`. Er wird unabhaengig von der Ausduennung der Samples als durchgehendes Zeitband gezeichnet.
+- Ein Sample enthaelt naive UTC-ISO-Zeit `time`, numerischen `value`, `unit`, optionales `label`, `state` (`normal`, `warning`, `danger`) und optionale pluginseitige Zusatzmetadaten wie `priority`. Fuer die feste Rasteranzeige wird keine Prioritaetsauswahl verwendet. `presentation: "directional"` nutzt zusaetzlich `rotationDegrees` (0 = Pfeil nach Norden); `presentation: "value"` zeigt Zahl und Einheit, etwa fuer Tide in Metern.
+- Die UI ist nur fuer feste Groessen, zeitliche Positionierung, sichtbaren Ausschnitt und Abstand zustaendig. Mehrere aktivierte Tracks erhalten getrennte 38-Pixel-Spuren im Hafenband. Fehler werden pro Plugin abgefangen; der Fahrplan bleibt bedienbar.
+
 ## Planung
 
+- Der Hauptbereich hat keine feste maximale Breite; die Planungsansicht nutzt die Desktopfensterbreite mit schmalen Seitenraendern. Kalender und eigene Scrollflaeche fuellen den unter Navigation/Werkzeugen verbleibenden Platz bis zum unteren Fensterrand, auch bei verkleinerter Browserdarstellung. Formularbereiche bleiben normal seitenweise scrollbar.
+- Der Seitenleisten-Schalter links neben "Liegeplatzbelegung" blendet die Flotten-/Hafenauswahlleiste aus und wieder ein. Ausgeblendet steht dem Kalender die gesamte Arbeitsbreite zur Verfuegung. Auswahl und Entwuerfe bleiben erhalten; die Einstellung wird je Benutzer im Browser sowie in benannten Ansichten gespeichert.
 - Transit- und Liegezeiten in Stunden werden in Kalender, Hafenfolge und Detailformular auf maximal zwei Nachkommastellen gerundet angezeigt. Die minutengenauen Ankunfts-/Abfahrtszeiten und Transitminuten bleiben erhalten.
 - Ohne gespeicherte Ansicht beginnt das Kalenderfenster beim lokalen heutigen Datum minus zehn Tage und endet einschliesslich des Tages sechs Kalendermonate nach Heute. Der Zeitraum wird nicht aus der ersten Proforma abgeleitet. Manuelle Zeitfenster und gespeicherte Ansichten bleiben moeglich.
 - Beim Anklicken eines Aufenthalts werden Schiff und konkrete Reise gemeinsam ausgewaehlt. Fahrplan-/Proforma-Anzeige und "Auf Proforma zuruecksetzen" beziehen sich damit auf denselben Reisebalken. Proforma-Balken sind schraffiert, tatsaechliche Fahrplaene nicht; beide haben einen durchgezogenen Rand.
@@ -67,7 +249,7 @@ Fuer den Heimnetztest bleiben HTTP-Cookies moeglich. Vor einer Internetfreigabe 
 - Einen Balken anklicken: verschiebbares Detailfenster mit Zeiten, Liegeplatz und Transitdauer.
 - Die eingetragene Transitdauer ist ein Planungswert. "Ankunft aus Transit neu berechnen" setzt die Ankunft entsprechend und erhaelt die Liegedauer. Die Plausibilitaetspruefung verwendet unabhaengig davon Entfernung / Maximalgeschwindigkeit, nicht den eingetragenen Planungswert.
 - Transitzeiten lassen sich auch direkt zwischen den Hafenbloecken bearbeiten. Der Haken berechnet die naechste Ankunft neu und erhaelt die Liegedauer; das Mitnehmen weiterer Aufenthalte folgt dem Schalter oben.
-- In der Dienstansicht steht hinter der Liegeplatzzahl "Hafen hinzufuegen". Hafenname, Liegeplatzzahl und Button bleiben beim horizontalen Scrollen gemeinsam links sichtbar. Der Dialog bietet alle registrierten Haefen an und fuegt den gewaehlten Hafen vor dem betreffenden Aufenthalt nur in die aktuelle Reise des ausgewaehlten Schiffs ein. Bei mehreren Besuchen desselben Hafens laesst sich unter "Vor Aufenthalt" der genaue folgende Aufenthalt waehlen. Auch ein erneuter Besuch eines bereits enthaltenen Hafens ist moeglich; jeder Besuch hat eine eigene ID, der physische Hafenblock wird nicht dupliziert.
+- In der Dienstansicht steht neben dem Hafennamen "Hafen hinzufuegen". Hafenname und Button bleiben beim horizontalen Scrollen gemeinsam links sichtbar; die Liegeplatzanzahl wird dort nicht zusaetzlich angezeigt. Der Dialog bietet alle registrierten Haefen an und fuegt den gewaehlten Hafen vor dem betreffenden Aufenthalt nur in die aktuelle Reise des ausgewaehlten Schiffs ein. Bei mehreren Besuchen desselben Hafens laesst sich unter "Vor Aufenthalt" der genaue folgende Aufenthalt waehlen. Auch ein erneuter Besuch eines bereits enthaltenen Hafens ist moeglich; jeder Besuch hat eine eigene ID, der physische Hafenblock wird nicht dupliziert.
 - Der neue Aufenthalt wird mittig zwischen der vorherigen Abfahrt und der folgenden Ankunft positioniert. Seine Liegedauer ist der Durchschnitt der beiden benachbarten Liegedauern, minutengenau gerundet. Vor dem ersten Aufenthalt wird dessen Liegedauer uebernommen und der neue Aufenthalt direkt davor gesetzt; die zunaechst fehlende Transitzeit muss vor dem Speichern passend eingeplant werden. Bestehende Ankunfts- und Abfahrtszeiten sowie Liegeplaetze bleiben unveraendert. Als Liegeplatz gilt der konfigurierte Dienstdefault, sonst LP 1.
 - Ad-hoc-Aufenthalte bleiben zunaechst gelbe Pending-Aenderungen und lassen sich bearbeiten oder rueckgaengig machen. Reicht die Luecke nicht aus, wird trotzdem der berechnete Entwurf angezeigt; vor dem Speichern muessen Ueberlappungen und zu kurze Transitzeiten behoben werden. Proforma und andere Runden erhalten keinen zusaetzlichen Aufenthalt. Im Proforma-Vergleich bekommt eine Ad-hoc-Station keinen erfundenen Planrahmen.
 - Bei negativen Zeitfenstern zwischen zwei Haefen oder explizit negativen Transitwerten einer tatsaechlichen Reise erscheint "Change Rotation". Der Button sortiert die Aufenthalte dieser Runde nach Ankunft und berechnet die Transitminuten zwischen den neuen Nachbarn. Das funktioniert auch fuer mehr als zwei vertauschte Haefen. Ankunft, Abfahrt und Liegeplatz bleiben unveraendert. Die neue Hafenfolge wird als Pending-Entwurf angezeigt und kann rueckgaengig gemacht werden; erst "Plan fuer dieses Schiff uebernehmen" speichert sie.
@@ -87,9 +269,9 @@ Die Anwendung benoetigt nur Fachdaten, keine zusaetzlichen Organisationsdateien:
 ```text
 data/
 	ports.json          Haefen, Liegeplaetze und Entfernungen
-	services.json       Dienstkonfiguration und Dienstfarben
+	services.json       Dienstkonfiguration, Dienstfarben und gemeinsame Proformas
 	ships/
-		busan.json        Schiff, Geschwindigkeit, Proformas und Reisen
+		busan.json        Schiff, Geschwindigkeit, Proforma-Zuordnungen und Reisen
 		berlin.json
 		...
 ```
@@ -100,7 +282,7 @@ Beim Uebernehmen wird ausschliesslich die aktuelle Datei des ausgewaehlten Schif
 
 Der Schutz gegen gleichzeitiges Ueberschreiben verwendet ausschliesslich `dataSignature`, eine aus den aktuellen Fachdaten berechnete Pruefsumme. Ein zusaetzlicher Speicherzaehler oder eine Metadatendatei ist nicht erforderlich. Pending und benannte Ansichten bleiben getrennt im lokalen Browser (`localStorage`). Ansichten werden nicht zwischen verschiedenen Browsern oder Rechnern synchronisiert; das Loeschen der Websitedaten entfernt diese lokalen Einstellungen und Entwuerfe.
 
-Eine Schiffsdatei enthaelt `id`, `name`, `serviceId`, `proformas` und `voyages`. Jede Proforma hat `id`, `name`, `validFrom`, `repeatWeeks` und `stops`. Das Startdatum einer Reise entscheidet, welche Proforma-Version verwendet wird; die jeweils neueste Version mit passendem Geltungsbeginn gewinnt. Die erste Ankunft der Vorlage ist der Anker ihres Zyklus. Unterschiedliche Jahres- oder Saisonproformas koennen dadurch unterschiedliche Anker und Intervalle haben.
+Eine Schiffsdatei enthaelt `id`, `name`, `serviceId`, `proformaAssignments` und `voyages` sowie Importname und Geschwindigkeit. Jede Zuordnung hat `proformaId`, `validFrom` und `offsetWeeks`. Die gemeinsame Vorlage liegt unter `proformas` des Dienstes in `services.json` und hat `id`, `name`, `validFrom`, `repeatWeeks` und `stops`. Fuer die Rundenerzeugung wird die zeitlich gueltige Schiffszuordnung verwendet; die erste Ankunft der referenzierten Vorlage plus Wochenversatz ist der Zyklusanker. Unterschiedliche Jahres- oder Saisonproformas koennen unterschiedliche Anker und Intervalle haben. Regeln fuer einen Wechsel waehrend einer laufenden Reise sind unter SF-009 noch abzustimmen.
 
 `voyages` enthaelt nur explizit gespeicherte tatsaechliche Reisen, indiziert nach dem nominellen Startdatum. Jede Reise speichert die vollstaendige Hafenfolge und ihre `proformaId`. Fehlt ein Eintrag, berechnet die Anwendung die Reise aus der Vorlage. Erst eine Aenderung in der Liegeplatzplanung legt einen Reiseabschnitt an. Proforma-Aenderungen wirken auf den Fallback, aber nicht auf vorhandene tatsaechliche Reisen. "Auf Proforma zuruecksetzen" entfernt einen tatsaechlichen Reiseabschnitt als Entwurf; erst "Plan fuer dieses Schiff uebernehmen" speichert das Entfernen.
 
@@ -174,7 +356,7 @@ Die Reiter "Flotte" und "Haefen" dienen zum Anlegen und Bearbeiten der Stammdate
 
 Bei Schiffen koennen Anzeigename, eindeutiger Importname, Dienst und Maximalgeschwindigkeit geaendert werden. Die technische ID und der Dateiname bleiben bei bestehenden Schiffen stabil. Fuer neue Datensaetze kann eine ID angegeben werden; andernfalls wird sie erzeugt. Der Importname wird normalisiert und muss eindeutig bleiben. Dienstwechsel und Namensaenderung verschieben keine Fahrplaene und veraendern keine Proformas.
 
-Neue Schiffe starten mit leeren `proformas` und `voyages`. Der erste Import erzeugt eine tatsaechliche Reise mit `proformaId: null`; eine Proforma oder Wiederholung wird nicht erfunden. Schiffe ohne Fahrplan bleiben im Kalender auswaehlbar. Spaetere weitere Importe koennen weitere tatsaechliche Reisen hinzufuegen.
+Neue Schiffe starten mit leeren `proformaAssignments` und `voyages`. Der erste Import erzeugt eine tatsaechliche Reise mit `proformaId: null`; eine Proforma oder Wiederholung wird nicht erfunden. Schiffe ohne Fahrplan bleiben im Kalender auswaehlbar. Spaetere weitere Importe koennen weitere tatsaechliche Reisen hinzufuegen.
 
 Bei Schiffen ohne Proforma bleibt eine gespeicherte Reise waehrend ihrer gesamten Laufzeit einschliesslich Transitluecken auswaehlbar. Passt das aktuelle Reisedatum beim Schiffwechsel zu keiner Reise, waehlt der Kalender eine gespeicherte Reise im sichtbaren Zeitraum, ersatzweise die erste gespeicherte Reise. Es wird dabei kein Fahrplan erzeugt. Kollisionshinweise pruefen alle Reisen im Kalenderzeitraum, nicht nur die aktuell ausgewaehlte Runde; "Bestand" bezeichnet bereits gespeicherte Konflikte. Balken am selben Liegeplatz koennen sich bei einer Kollision ueberdecken.
 

@@ -23,6 +23,9 @@ let activeDate = null, selectedService = null, mode = 'planning', activeProforma
 let proformaDraft = null, proformaDirty = false, proformaIsNew = false;
 let proformaTemplate = true;
 let collapsed = new Set(), hiddenBerths = new Set(), views = {}, activeDrag = false;
+let showExpandedStays = true;
+let sidebarCollapsed = false;
+try { sidebarCollapsed = localStorage.getItem(storageKey('phoca-sidebar-collapsed')) === 'true'; } catch {}
 let compareProforma = false;
 let refreshingData = false, dataChangeNotice = '', dataLoadNotice = '';
 let rotating = false;
@@ -283,8 +286,10 @@ function transitRow(position, port, nextPort, voyages, backgroundBands) {
     const left = (instant(stay.arrival) - START) / DAY * dayWidth;
     const width = duration / 24 * dayWidth;
     const label = mode === 'proformas' && proformaTemplate ? serviceProforma(ship, activeProforma)?.name || ship.name : ship.name;
-    content += `<button type="button" class="stay-box ${voyage.source === 'proforma' || mode === 'proformas' ? 'proforma-pattern' : ''}" data-overview-stop="${stay.id}" data-voyage="${voyage.key}" style="left:${left}px;width:${Math.max(width, 6)}px" title="${escapeHtml(label)}\nLiegezeit: ${roundedHours(duration)} h"><strong>${escapeHtml(label)}</strong><span>Liegezeit: ${roundedHours(duration)} h</span></button>`;
-    content += referenceHtml(ship, stay, voyage, true);
+    if (showExpandedStays || collapsed.has(port.id)) {
+      content += `<button type="button" class="stay-box ${voyage.source === 'proforma' || mode === 'proformas' ? 'proforma-pattern' : ''}" data-overview-stop="${stay.id}" data-voyage="${voyage.key}" style="left:${left}px;width:${Math.max(width, 6)}px" title="${escapeHtml(label)}\nLiegezeit: ${roundedHours(duration)} h"><strong>${escapeHtml(label)}</strong><span>Liegezeit: ${roundedHours(duration)} h</span></button>`;
+      content += referenceHtml(ship, stay, voyage, true);
+    }
     if (next) {
       const gap = (instant(next.arrival) - instant(stay.departure)) / HOUR;
       const minimum = minimumTransit(ship, stay.portId, next.portId);
@@ -329,7 +334,7 @@ function renderChart() {
     }
     const canInsert = route.some((stop) => stop.portId === port.id);
     const addButton = !harborOverview && mode === 'planning' ? `<button type="button" class="add-port-button" data-add-port="${port.id}" ${canInsert ? '' : 'disabled'} title="Zus\u00e4tzlichen Hafen vor diesem Aufenthalt einf\u00fcgen">+ Hafen hinzuf\u00fcgen</button>` : '';
-    html += `<div class="port-heading"><div class="port-heading-content"><button class="port-label port-toggle" data-collapse="${port.id}" aria-expanded="${!collapsed.has(port.id)}" title="Hafen ein- oder ausklappen"><span class="chevron ${collapsed.has(port.id) ? 'closed' : ''}">&#9662;</span>${escapeHtml(port.name)}</button><div class="port-note">${port.berths} LIEGEPL${port.berths === 1 ? 'ATZ' : '&Auml;TZE'}</div>${addButton}</div></div>`;
+    html += `<div class="port-heading"><div class="port-heading-content"><button class="port-label port-toggle" data-collapse="${port.id}" aria-expanded="${!collapsed.has(port.id)}" title="Hafen ein- oder ausklappen"><span class="chevron ${collapsed.has(port.id) ? 'closed' : ''}">&#9662;</span>${escapeHtml(port.name)}</button>${addButton}</div><div class="port-plugin-lanes" data-port-plugins="${escapeHtml(port.id)}"></div></div>`;
     if (collapsed.has(port.id)) continue;
     for (let berth = 1; berth <= port.berths; berth++) {
       if (hiddenBerths.has(`${port.id}:${berth}`)) continue;
@@ -359,6 +364,7 @@ function renderChart() {
   $('#timeline-start').value = iso(START).slice(0, 10);
   $('#timeline-end').value = iso(END - DAY).slice(0, 10);
   renderConnections();
+  globalThis.PortPlugins?.schedule();
 }
 
 function renderSidebar() {
@@ -394,6 +400,8 @@ function renderSidebar() {
 function render() {
   const isImport = mode === 'import';
   const isMaster = mode === 'fleet' || mode === 'ports';
+  document.body.classList.toggle('planning-layout', !isImport && !isMaster);
+  renderSidebarVisibility();
   $('#master-panel').hidden = !isMaster;
   $('#import-panel').hidden = !isImport;
   $('.toolbar').hidden = isImport || isMaster;
@@ -455,6 +463,27 @@ function render() {
   $('#stop-count').textContent = working.reduce((count, raw) => count + visibleVoyages(raw).reduce((total, voyage) => total + voyage.stops.filter((stop) => routePorts().some((port) => port.id === stop.portId)).length, 0), 0);
   renderBerthOptions();
 }
+
+function renderSidebarVisibility() {
+  $('.workspace').classList.toggle('fleet-collapsed', sidebarCollapsed);
+  $('#fleet-sidebar').hidden = sidebarCollapsed;
+  const button = $('#sidebar-toggle');
+  const label = sidebarCollapsed ? 'Flottenuebersicht einblenden' : 'Flottenuebersicht ausblenden';
+  button.setAttribute('aria-expanded', String(!sidebarCollapsed));
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  button.innerHTML = `<i data-lucide="${sidebarCollapsed ? 'panel-left-open' : 'panel-left-close'}" aria-hidden="true"></i>`;
+  icons();
+}
+
+$('#sidebar-toggle').addEventListener('click', () => {
+  sidebarCollapsed = !sidebarCollapsed;
+  try { localStorage.setItem(storageKey('phoca-sidebar-collapsed'), String(sidebarCollapsed)); } catch {}
+  $('#view-select').value = '';
+  renderSidebarVisibility();
+  renderConnections();
+  globalThis.PortPlugins?.schedule();
+});
 
 function selectShip(id, focus = false) {
   if (mode === 'proformas') proformaTemplate = false;
@@ -520,6 +549,7 @@ function shiftStops(ship, from, delta) {
 }
 
 function renderBerthOptions() {
+  $('#show-expanded-stays').checked = showExpandedStays;
   $('#berth-options').innerHTML = routePorts().map((port) => `<fieldset><legend>${escapeHtml(port.name)}</legend><label class="checkbox-label"><input type="checkbox" data-view-collapse="${port.id}" ${collapsed.has(port.id) ? 'checked' : ''}> Hafen eingeklappt</label><div class="berth-checks">${Array.from({length: port.berths}, (_, index) => `<label><input type="checkbox" data-visible-berth="${port.id}:${index + 1}" ${hiddenBerths.has(`${port.id}:${index + 1}`) ? '' : 'checked'}> LP ${index + 1}</label>`).join('')}</div></fieldset>`).join('');
 }
 
@@ -633,6 +663,8 @@ function applyView(config) {
   }
   collapsed = new Set(config.collapsed);
   hiddenBerths = new Set(config.hiddenBerths);
+  showExpandedStays = config.showExpandedStays !== false;
+  if (typeof config.sidebarCollapsed === 'boolean') sidebarCollapsed = config.sidebarCollapsed;
   dayWidth = config.dayWidth;
   compareProforma = config.compareProforma === true;
   harborOverview = config.harborOverview === true;
@@ -647,6 +679,12 @@ function applyView(config) {
   $('#chart-scroll').scrollLeft = config.scrollLeft;
   $('#chart-scroll').scrollTop = config.scrollTop;
 }
+
+$('#show-expanded-stays').addEventListener('change', (event) => {
+  showExpandedStays = event.target.checked;
+  $('#view-select').value = '';
+  renderChart();
+});
 
 $('#berth-options').addEventListener('change', (event) => {
   const input = event.target;
@@ -822,7 +860,7 @@ $('#save-view').addEventListener('click', () => {
   const name = $('#view-name').value.trim();
   if (!name) { notify('Bitte einen Namen f\u00fcr die Ansicht eingeben.', true); return; }
   const config = {collapsed: [...collapsed], hiddenBerths: [...hiddenBerths], dayWidth, voyageDate: activeDate,
-    start: iso(START), end: iso(END - DAY), selected, compareProforma, harborOverview, selectedPorts: [...selectedPorts], scrollLeft: $('#chart-scroll').scrollLeft, scrollTop: $('#chart-scroll').scrollTop};
+    start: iso(START), end: iso(END - DAY), selected, compareProforma, harborOverview, showExpandedStays, sidebarCollapsed, selectedPorts: [...selectedPorts], scrollLeft: $('#chart-scroll').scrollLeft, scrollTop: $('#chart-scroll').scrollTop};
   try {
     const updated = {...views, [name]: config};
     localStorage.setItem(storageKey('harborline-views'), JSON.stringify(updated));
@@ -834,6 +872,7 @@ $('#save-view').addEventListener('click', () => {
   } catch (error) { notify(error.message, true); }
 });
 $('#reset-view').addEventListener('click', () => {
+  showExpandedStays = true;
   collapsed.clear(); hiddenBerths.clear(); $('#view-select').value = '';
   renderChart(); renderBerthOptions();
 });

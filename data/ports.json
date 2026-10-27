@@ -8,13 +8,18 @@
       ]
     },
     "name": "Rotterdam MV2",
+    "coordinates": {
+      "latitude": 51.952,
+      "longitude": 4.028
+    },
+    "plugins": {
+      "weather": {
+        "enabled": true,
+        "warningWindKnots": 25
+      }
+    },
     "berths": 2,
-    "distancesNm": {
-      "hamburg": 100,
-      "london": 100,
-      "bremerhaven": 100,
-      "algeciras": 100
-    }
+    "distancesNm": {}
   },
   {
     "id": "hamburg",
@@ -25,23 +30,38 @@
       ]
     },
     "name": "Hamburg Eurogate",
+    "coordinates": {
+      "latitude": 53.5264,
+      "longitude": 9.9175
+    },
+    "plugins": {
+      "weather": {
+        "enabled": true,
+        "warningWindKnots": 20
+      }
+    },
     "berths": 6,
     "distancesNm": {
-      "london": 100,
-      "bremerhaven": 100,
-      "algeciras": 100
+      "rotterdam": 100
     }
   },
   {
     "id": "antwerp",
     "name": "Antwerpen",
+    "coordinates": {
+      "latitude": 51.303,
+      "longitude": 4.289
+    },
+    "plugins": {
+      "weather": {
+        "enabled": true,
+        "warningWindKnots": 25
+      }
+    },
     "berths": 1,
     "distancesNm": {
       "rotterdam": 100,
-      "hamburg": 100,
-      "london": 100,
-      "bremerhaven": 100,
-      "algeciras": 100
+      "hamburg": 100
     },
     "aliases": {
       "maersk": [
@@ -58,23 +78,42 @@
       ]
     },
     "name": "London",
+    "coordinates": {
+      "latitude": 51.508,
+      "longitude": 0.495
+    },
+    "plugins": {
+      "weather": {
+        "enabled": true,
+        "warningWindKnots": 20
+      }
+    },
     "berths": 4,
     "distancesNm": {
-      "bremerhaven": 100,
-      "algeciras": 100
+      "rotterdam": 100,
+      "hamburg": 100,
+      "antwerp": 100
     }
   },
   {
     "id": "tangier",
     "name": "Tangier TC3",
+    "coordinates": {
+      "latitude": 35.889,
+      "longitude": -5.483
+    },
+    "plugins": {
+      "weather": {
+        "enabled": true,
+        "warningWindKnots": 20
+      }
+    },
     "berths": 2,
     "distancesNm": {
       "rotterdam": 100,
       "hamburg": 100,
       "antwerp": 100,
-      "london": 100,
-      "bremerhaven": 100,
-      "algeciras": 100
+      "london": 100
     },
     "aliases": {
       "maersk": [
@@ -91,9 +130,23 @@
       ]
     },
     "name": "Bremerhaven",
+    "coordinates": {
+      "latitude": 53.591,
+      "longitude": 8.549
+    },
+    "plugins": {
+      "weather": {
+        "enabled": true,
+        "warningWindKnots": 20
+      }
+    },
     "berths": 2,
     "distancesNm": {
-      "algeciras": 100
+      "rotterdam": 100,
+      "hamburg": 100,
+      "antwerp": 100,
+      "london": 100,
+      "tangier": 100
     }
   },
   {
@@ -105,7 +158,24 @@
       ]
     },
     "name": "Algeciras",
+    "coordinates": {
+      "latitude": 36.131,
+      "longitude": -5.429
+    },
+    "plugins": {
+      "weather": {
+        "enabled": true,
+        "warningWindKnots": 20
+      }
+    },
     "berths": 2,
-    "distancesNm": {}
+    "distancesNm": {
+      "rotterdam": 100,
+      "hamburg": 100,
+      "antwerp": 100,
+      "london": 100,
+      "tangier": 100,
+      "bremerhaven": 100
+    }
   }
 ]

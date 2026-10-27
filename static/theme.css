@@ -6,6 +6,8 @@
 [data-theme=dark] .theme-icon-fallback::before{content:'\2600'}
 .theme-toggle svg~.theme-icon-fallback{display:none}
 .auth-page>.theme-toggle{position:fixed;top:18px;right:18px;z-index:10}
+.transit-row{border-top:3px solid #a7b8b0;border-bottom:3px solid #a7b8b0}
+.view-popover>label.checkbox-label{display:flex;align-items:flex-start}
 
 :root[data-theme=dark]{color-scheme:dark;--ink:#e7ebea;--muted:#a4b1ad;--line:#3b4342;--paper:#181c1d;--teal:#63c6b4;--red:#f18186;--blue:#7abedc;--yellow:#e6be62;--surface:#222728;--raised:#2c3333;--field:#1b2122;--grid:#333b3b}
 [data-theme=dark] :is(.app-header,.schedule,.auth-card,.time-header,.berth-label,.track,.inspector,.add-port-dialog,.view-popover,.import-table){background-color:var(--surface);border-color:var(--line)}
@@ -53,3 +55,4 @@
 [data-theme=dark] .transit-editor{background:var(--raised);color:var(--ink);border-color:var(--line)}
 [data-theme=dark] .transit-editor :is(span,small:not(.negative-gap)){color:var(--muted)}
 [data-theme=dark] .transit-editor button{background:#355048;color:#bde5d4;border-color:#506b61}
+[data-theme=dark] .transit-row{border-top-color:#6b7f76;border-bottom-color:#6b7f76}

@@ -14,6 +14,7 @@ from planning import change_rotation, conflicts, insert_adhoc_stop, migrate_serv
 from schedule_import import parse_maersk_text, prepare_import, prepare_service_import, vessel_identifier, vessel_key
 from master_data import rename_port_references, update_port_metadata, update_ship_metadata
 from auth import register_auth
+from port_plugins import PortPluginRegistry
 
 
 def create_app(data_root=None, auth_root=None):
@@ -21,6 +22,9 @@ def create_app(data_root=None, auth_root=None):
     root = Path(data_root) if data_root else Path(__file__).parent / "data"
     lock = threading.Lock()
     live_import_lock = threading.Lock()
+    runtime_root = Path(auth_root) if auth_root is not None else (root / '.runtime' if data_root is not None else Path(app.instance_path))
+    port_plugins = PortPluginRegistry(cache_dir=runtime_root / 'weather-cache')
+    app.extensions['port_plugins'] = port_plugins
 
     def write(path, value):
         if path.exists() and json.loads(path.read_text(encoding="utf-8")) == value:
@@ -120,6 +124,26 @@ def create_app(data_root=None, auth_root=None):
     def get_plan():
         with lock:
             return jsonify(response_plan(read_schedule()))
+
+    @app.get('/api/port-plugins')
+    def get_port_plugins():
+        return jsonify(port_plugins.metadata())
+
+    @app.get('/api/ports/<port_id>/plugins')
+    def get_port_plugin_series(port_id):
+        try:
+            start = datetime.fromisoformat(request.args['start'])
+            end = datetime.fromisoformat(request.args['end'])
+            if start.tzinfo is not None or end.tzinfo is not None or start >= end:
+                raise ValueError('Gueltigen UTC-Planzeitraum ohne Zeitzonenoffset angeben.')
+            plugin_ids = set(request.args.get('plugins', 'weather').split(','))
+            with lock:
+                port = next((item for item in load('ports.json') if item['id'] == port_id), None)
+            if port is None:
+                return jsonify(error='Hafen nicht gefunden.'), 404
+            return jsonify(port_plugins.series(port, start, end, plugin_ids))
+        except (ValueError, KeyError, TypeError, OverflowError) as error:
+            return jsonify(error=str(error)), 400
 
     @app.post("/api/fleet")
     @app.put("/api/fleet/<ship_id>")

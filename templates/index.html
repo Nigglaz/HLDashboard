@@ -9,10 +9,12 @@
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+   <link rel="stylesheet" href="{{ url_for('static', filename='port_plugins.css') }}">
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
   <script src="{{ url_for('static', filename='auth.js') }}" defer></script>
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
   <script src="{{ url_for('static', filename='master_data.js') }}" defer></script>
+   <script src="{{ url_for('static', filename='port_plugins.js') }}" defer></script>
 </head>
 <body data-user="{{ g.user.email }}">
   <header class="app-header">
@@ -24,7 +26,7 @@
     <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="button quiet">Abmelden</button></form>
   </header>
 
-  <main>
+  <main class="app-main">
     <section id="master-panel" class="master-panel" hidden>
       <header class="import-heading"><h1 id="master-title">Stammdaten</h1><button id="master-new" type="button" class="button primary">Neu anlegen</button></header>
       <div class="master-layout"><aside id="master-list" class="master-list" aria-label="Stammdatenauswahl"></aside>
@@ -32,6 +34,7 @@
           <div class="master-fields"><label>Technische ID<input id="master-id" pattern="[a-z0-9][a-z0-9_-]{0,63}" maxlength="64"></label><label>Anzeigename<input id="master-name" required maxlength="160"></label>
           <label data-master-kind="fleet">Eindeutiger Importname<input id="master-vessel" maxlength="120"></label><label data-master-kind="fleet">Dienst<input id="master-service" list="master-services" maxlength="40"><datalist id="master-services"></datalist></label><label data-master-kind="fleet">Maximalgeschwindigkeit (kn)<input id="master-speed" type="number" min="0.1" step="0.1"></label><label data-master-kind="ports">Liegepl&auml;tze<input id="master-berths" type="number" min="1" max="200" step="1"></label></div>
           <label data-master-kind="ports" class="master-aliases">Alternative Hafennamen (JSON: Datenquelle &rarr; Namensliste)<textarea id="master-aliases" rows="6" spellcheck="false">{}</textarea></label>
+           <section data-master-kind="ports" class="port-plugin-settings"><h2>Standort &amp; Hafen-Plugins</h2><div class="master-fields"><label>Breitengrad<input id="master-latitude" type="number" min="-90" max="90" step="any"></label><label>L&auml;ngengrad<input id="master-longitude" type="number" min="-180" max="180" step="any"></label><label>Windwarnung ab (kn)<input id="master-wind-warning" type="number" min="0.1" step="0.1"></label></div><label class="checkbox-label"><input id="master-weather-enabled" type="checkbox" checked> Wind-Plugin aktiv</label></section>
           <section data-master-kind="fleet" class="assignment-section"><h2>Proforma-Zuordnungen</h2><div id="ship-proforma-assignments"></div><button id="assignment-add" type="button" class="button">Zuordnung hinzuf&uuml;gen</button></section>
           <section data-master-kind="ports"><h2>Entfernungen (sm)</h2><div id="master-distances" class="master-distances"></div></section>
           <p id="master-plan-info" class="muted"></p><p id="master-error" class="form-error" role="alert"></p>
@@ -87,13 +90,13 @@
 
     <section class="view-toolbar" aria-label="Ansichten">
       <label>Ansicht <select id="view-select" aria-label="Gespeicherte Ansicht"><option value="">Individuell</option></select></label>
-      <details id="view-options"><summary>Liegepl&auml;tze &amp; Ansicht</summary><div class="view-popover"><div class="view-actions"><button id="collapse-all" class="button" type="button">Alle einklappen</button><button id="expand-all" class="button" type="button">Alle ausklappen</button></div><div id="berth-options"></div><label>Ansichtsname<input id="view-name" maxlength="80" placeholder="Meine Ansicht"></label><div class="view-actions"><button id="save-view" class="button primary" type="button">Ansicht speichern</button><button id="reset-view" class="button" type="button">Alle einblenden</button></div></div></details>
+        <details id="view-options"><summary>Liegepl&auml;tze &amp; Ansicht</summary><div class="view-popover"><div class="view-actions"><button id="collapse-all" class="button" type="button">Alle einklappen</button><button id="expand-all" class="button" type="button">Alle ausklappen</button></div><label class="checkbox-label"><input id="show-expanded-stays" type="checkbox" checked> Liegezeit-Rechtecke auch bei ausgeklappten H&auml;fen</label><fieldset class="port-plugin-options"><legend>Hafen-Plugins</legend><div id="port-plugin-options"></div><div id="port-plugin-sources" class="plugin-sources"></div></fieldset><div id="berth-options"></div><label>Ansichtsname<input id="view-name" maxlength="80" placeholder="Meine Ansicht"></label><div class="view-actions"><button id="save-view" class="button primary" type="button">Ansicht speichern</button><button id="reset-view" class="button" type="button">Alle einblenden</button></div></div></details>
       <label class="start-label">Ab <input id="timeline-start" type="date" aria-label="Beginn der Zeitachse"></label>
       <label>Bis <input id="timeline-end" type="date" aria-label="Ende der Zeitachse"></label>
     </section>
 
     <div class="workspace">
-      <aside class="sidebar">
+      <aside id="fleet-sidebar" class="sidebar">
         <div class="vessel-photo"><img src="https://images.unsplash.com/photo-1494412519320-aa613dfb7738?w=640&auto=format&fit=crop&q=80" alt="Containerterminal am Hafen"><span>FLOTTEN&Uuml;BERSICHT</span></div>
         <div class="sidebar-heading"><span id="fleet-title">Schiffe</span><span id="fleet-count" class="muted"></span></div>
         <div id="fleet" class="fleet"></div>
@@ -102,7 +105,7 @@
       </aside>
 
       <section class="schedule" aria-label="Hafen-Zeitleiste">
-        <div class="schedule-top"><div class="schedule-heading"><div><strong>Liegeplatzbelegung</strong><span id="visible-range" class="muted"></span></div><button id="today" class="button" type="button">Heute</button></div><div class="legend"><span><b class="swatch selected"></b>Ausgew&auml;hlt</span><span id="service-legend" class="service-legend"></span><span><b class="swatch draft"></b>Entwurf</span><span><b class="swatch baseline"></b>Bisher</span></div></div>
+        <div class="schedule-top"><div class="schedule-heading"><button id="sidebar-toggle" class="button icon" type="button" aria-controls="fleet-sidebar" aria-expanded="true" aria-label="Flottenuebersicht ausblenden" title="Flottenuebersicht ausblenden"><i data-lucide="panel-left-close" aria-hidden="true"></i></button><div><strong>Liegeplatzbelegung</strong><span id="visible-range" class="muted"></span></div><button id="today" class="button" type="button">Heute</button><button id="weather-toggle" class="button port-weather-toggle" type="button" aria-label="Windanzeige" aria-pressed="true" title="Windanzeige ausblenden" disabled><i data-lucide="wind" aria-hidden="true"></i> Wind</button></div><div class="legend"><span><b class="swatch selected"></b>Ausgew&auml;hlt</span><span id="service-legend" class="service-legend"></span><span><b class="swatch draft"></b>Entwurf</span><span><b class="swatch baseline"></b>Bisher</span></div></div>
         <div id="chart-scroll" class="chart-scroll"><div id="chart" class="chart"></div></div>
         <footer class="chart-footer"><span><span class="live-dot"></span> <span id="status">Bereit</span></span><span>Planzeit UTC &middot; 1-h-Raster <span class="desktop-only">&middot; <span id="stop-count">30</span> Aufenthalte</span></span></footer>
       </section>
