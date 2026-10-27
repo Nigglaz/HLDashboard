@@ -1,4 +1,4 @@
-# Harborline - Flask-Prototyp
+# Phoca - Flask-Prototyp
 
 Lokale Liegeplatzplanung fuer die in den JSON-Dateien konfigurierten Schiffe, Haefen und Dienste.
 
@@ -7,6 +7,26 @@ Lokale Liegeplatzplanung fuer die in den JSON-Dateien konfigurierten Schiffe, Ha
 Dieser Katalog ist die gemeinsame Grundlage fuer fachliche Abstimmungen, Erweiterungen und spaetere Abnahmetests. Die IDs bleiben bei Aenderungen erhalten; neue Anforderungen erhalten neue IDs. Anforderungen werden nicht allein durch eine Codeaenderung als fachlich abgenommen betrachtet.
 
 **Stand der Bestandsaufnahme: 27.10.2026.** "Vorhanden" beschreibt eine aktuell angebotene Funktion, keine vollstaendige fachliche Freigabe. "Teilweise" bedeutet: Ein Teil ist vorhanden, aber die Anforderung oder ihre Sonderfaelle sind noch nicht vollstaendig abgedeckt. "Offen" bedeutet: Umsetzung oder Entscheidung steht aus. Die Spalte "Abstimmung" haelt offene Regeln fest; Vorschlaege darin sind noch keine beschlossenen Anforderungen. Die folgenden Bedienungs- und Technikabschnitte beschreiben den bisherigen Stand und sind bei Aenderungen mit diesem Katalog abzugleichen.
+
+**Fortschreibung 27.10.2026 (Abgleich mit der Sprachnachricht eines potentiellen Nutzers):** Neue Anforderungen tragen den Zusatz "(neu)" in der Spalte "Stand" und sind noch nicht fachlich abgestimmt. Bestehende IDs und ihr Wortlaut sind unveraendert; Bezuege zu neuen Anforderungen stehen in der Spalte "Abstimmung" als "Ergaenzung 27.10.2026". Die Rueckverfolgung vom Nutzerwunsch zu den IDs steht am Ende des Katalogs.
+
+### Glossar
+
+| Begriff | Bedeutung in diesem Projekt |
+| --- | --- |
+| Proforma | Dienstvorlage je Dienst, schiffsunabhaengig: je Hafen ein Zeitfenster (von-bis). Wird selten angepasst. |
+| LTS (Long Term Schedule) | Excel-Plan, der regelmaessig neu verteilt wird. Enthaelt die vereinbarten Fenster fuer mehrere Regionen (z. B. Asien und Europa) und die Zuordnung Schiff zu Position in der Rotation. |
+| Ist / Entwurf | Tatsaechlicher bzw. geplanter Fahrplan eines Schiffes; weicht ggf. vom Soll ab (Verspaetung, Vorlauf). |
+| Delta | Abweichung des Ist/Entwurfs vom Soll-Fenster (frueh/spaet) in Stunden. Bezugsbasis siehe SF-017. |
+| Umlauf / Voyage-Paar | Eine Reise mit zwei Voyage-Nummern: Westbound (kommt aus Asien nach Europa) und Eastbound (Rueckreise). Dazwischen liegt der Turnport in Europa. |
+| Turnport | Hafen in Europa, ab dem die Reise von Westbound auf Eastbound wechselt. |
+| Slide | Ein ganzer Dienst rutscht um eine oder mehrere Wochen (eine Woche wird "geblankt"); Schiff A uebernimmt die Position von Schiff B usw. Danach wird in der Regel ein neuer LTS verteilt. |
+| Blank Sailing | Bewusst entfallene Runde. Nicht gleichzusetzen mit fehlenden Daten. |
+| Change of Rotation | Die Hafenreihenfolge einer Rotation aendert sich. |
+| Phase-in / Phase-out | Ein Schiff steigt in einen Dienst ein bzw. aus (z. B. Dock, andere Verwendung, andere Region). Im LTS erscheint meist nur das Phase-in-Schiff offiziell; das Phase-out-Schiff laeuft parallel weiter. |
+| Anlauf-Rolle | Rolle eines Schiffes bei einem Anlauf: nur Laden, nur Loeschen, beides oder ausgelassen. Relevant vor allem im Phase-in/out-Paar. |
+| Feeder-Verbindung | Ladung wird in einem anderen Hafen gebuendelt und zum Phase-in-Schiff weitergeleitet. |
+| Moves | Geplante Containerbewegungen je Liegefenster, aufgeteilt in eigene (Hapag-Lloyd) und Partner. |
 
 ### Verantwortungsgrenzen
 
@@ -28,14 +48,23 @@ Dieser Katalog ist die gemeinsame Grundlage fuer fachliche Abstimmungen, Erweite
 | FE-UI-004 | Auswahl, Dienstfarbe, offener Entwurf, gespeicherter Fahrplan und Proforma sind unterscheidbar; Proformas sind schraffiert. | Vorhanden | Farben und Symbole sollen auch bei Warnbaendern und Dark Mode lesbar bleiben. |
 | FE-UI-005 | Ein Aufenthalt laesst sich zeitlich verschieben, verlaengern und auf einen anderen Liegeplatz desselben Terminals setzen. | Vorhanden | Verschiebung zwischen Terminals und Bedienung ueber Tastatur gesondert abstimmen. |
 | FE-UI-006 | Das Mitnehmen folgender Aufenthalte ist waehlbar; Vorschau, Rueckgaengig/Wiederholen, Verwerfen und Einzeluebernahme bleiben getrennt. | Vorhanden | Mehrere abhaengige Schiffsentwuerfe und gemeinsame Uebernahme noch abstimmen. |
-| FE-UI-007 | Eine Hafenuebersicht zeigt ausgewaehlte Terminals und alle dortigen Schiffe dienstuebergreifend. | Vorhanden | Derzeit Vergleichsansicht, keine dienstuebergreifende Bearbeitung. |
+| FE-UI-007 | Eine Hafenuebersicht zeigt ausgewaehlte Terminals und alle dortigen Schiffe dienstuebergreifend. | Vorhanden | Derzeit Vergleichsansicht, keine dienstuebergreifende Bearbeitung. Ergaenzung 27.10.2026: Fuer Phase-out-Szenarien im Hafen (SF-015) ist ggf. Bearbeitung noetig; siehe FE-UI-017, FE-UI-019, FE-UI-020. |
 | FE-UI-008 | Benannte Ansichten speichern lokale Kalenderoptionen einschliesslich einklappbarer Flottenleiste; Liegezeit-Rechtecke lassen sich bei ausgeklappten Haefen optional ausblenden. | Vorhanden | Browserlokal und je Benutzer; keine rechneruebergreifende Synchronisation zugesagt. |
 | FE-UI-009 | Beim Wechsel von der Planung zum Datenimport wird das ausgewaehlte Schiff uebernommen; fremde alte Importdaten werden zurueckgesetzt. | Vorhanden | Importziel und offene Entwuerfe muessen eindeutig bleiben. |
-| FE-UI-010 | Konfigurierbare Haefen/Terminals, Schiffe und Proforma-Zuordnungen koennen ueber Formulare bearbeitet werden. | Vorhanden | Sichere Loesch-/Stilllegungsablaeufe fehlen als eigene Fachentscheidung. |
+| FE-UI-010 | Konfigurierbare Haefen/Terminals, Schiffe und Proforma-Zuordnungen koennen ueber Formulare bearbeitet werden. | Vorhanden | Sichere Loesch-/Stilllegungsablaeufe fehlen als eigene Fachentscheidung. Ergaenzung 27.10.2026: Schiffsdatenfelder siehe BE-DAT-005 und FE-UI-023. |
 | FE-UI-011 | Der Proforma-Bereich stellt Dienstvorlage und schiffsspezifischen Versatz getrennt dar. | Teilweise | Der aktuelle Bereich ist fuer Fahrplandetails schreibgeschuetzt; vollstaendigen Editor, Versionsanlage und Freigabe abstimmen. |
-| FE-UI-012 | Hell-/Dunkelmodus, klare Trennung der Hafen-/Transitbloecke und angeheftete Hafenbuttons bleiben bei Zoom und Scrollen erhalten. | Vorhanden | Transitzeilen sind oben und unten mit gleich starken, kontrastreichen Linien getrennt. Zwischen Hafenname und "+ Hafen hinzufuegen" steht keine zusaetzliche Liegeplatzanzahl. |
+| FE-UI-012 | Hell-/Dunkelmodus, klare Trennung der Hafen-/Transitbloecke und angeheftete Hafenbuttons bleiben bei Zoom und Scrollen erhalten. | Vorhanden | Transitzeilen sind oben und unten mit gleich starken, kontrastreichen Linien getrennt. Zwischen Hafenname und "+ Hafen hinzufuegen" steht keine zusaetzliche Liegeplatzanzahl. Ergaenzung 27.10.2026: Pruefen, ob "+ Hafen hinzufuegen" einen Ad-hoc-Anlauf (BE-PLAN-009) oder nur eine Kalenderzeile anlegt; siehe FE-UI-021. |
 | FE-UI-013 | Die Flotten-/Hafenauswahlleiste ist ueber einen Schalter links neben "Liegeplatzbelegung" ein- und ausklappbar; eingeklappt erhaelt der Kalender die frei werdende Breite. | Vorhanden | Aktuelles Schiff, offene Entwuerfe und Kalenderoptionen bleiben erhalten. Zustand je Benutzer im Browser und in benannten Ansichten speichern; der Schalter bleibt zum Wiedereinblenden erreichbar. |
 | FE-UI-014 | Der Planungs-Hauptbereich nutzt die gesamte Desktopfensterbreite mit schmalen Raendern; der Kalender fuellt den verbleibenden Platz bis zum unteren Fensterrand. | Vorhanden | Verkleinern per Browserzoom darf keine grosse Leerflaeche unten oder seitlich erzeugen. Kalender scrollt innerhalb seiner Flaeche; Formularbereiche bleiben normal scrollbar. Desktoppruefung auch auf grossen Fenstern, keine Mobilpruefung. |
+| FE-UI-015 | Je Anlauf wird die Abweichung vom Soll-Fenster (frueh/spaet in Stunden) angezeigt, auch im offenen Entwurf und waehrend des Verschiebens. | Offen (neu) | Darstellung als Badge, Farbe und/oder Fensterrahmen am Balken abstimmen. Berechnung liegt im Backend (BE-PLAN-015). |
+| FE-UI-016 | Beim Verschieben zeigt die UI Puffer bis Fensterende und Folgehafen sowie betroffene Schiffe und Dienste (Hervorhebung plus Liste). | Offen (neu) | Nutzt BE-PLAN-016. Frage des Nutzers: "Kann ich das, ohne in Hafen B zu spaet zu sein?" und "Wen beeinflusse ich negativ?". |
+| FE-UI-017 | Filter nach Dienst, Region (z. B. nur Europa) und Hafen sind kombinierbar. Die Dienstansicht zeigt die Rotation, die Hafenansicht alle Dienste. | Teilweise (neu) | Hafenansicht ueber FE-UI-007 vorhanden; Dienst- und Regionsfilter in Kombination offen. Bezug BE-PLAN-021. |
+| FE-UI-018 | Slide und LTS-/Proforma-Import haben einen Dialog mit Diff-Vorschau (alt zu neu), Mapping der Runden und ausdruecklicher Bestaetigung. | Offen (neu) | Zu BE-PLAN-017 und BE-INT-008. Ergaenzt FE-UI-009. |
+| FE-UI-019 | Phase-in/out-Paare sind darstellbar: Begleitspur oder Verknuepfungslinie, Rolle je Anlauf (Laden/Loeschen/beides/ausgelassen) und beide Voyage-Nummern. | Offen (neu) | Eine Zeile oder zwei verknuepfte Zeilen? Erwartete Ueberlappung darf nicht wie ein Fehler aussehen (BE-PLAN-020). SF-015. |
+| FE-UI-020 | Freie Fenster je Liegeplatz/Terminal werden in der Hafenansicht hervorgehoben. | Offen (neu) | Zu BE-PLAN-022. Hamburg Eurogate als Referenzfall: Kapazitaetsluecke fuer ein Phase-out-Schiff erkennen. |
+| FE-UI-021 | Die Hafenreihenfolge einer Rotation laesst sich im Tool aendern (Change of Rotation) und Haefen koennen hinzugefuegt werden; ein Hafen der Rotation oder ein fremder Hafen. | Teilweise (neu) | Backend-Seite: BE-PLAN-009/010. Dauerhaft oder einmalig siehe SF-005. |
+| FE-UI-022 | Terminal-Stammdaten bieten Quicklinks (Terminal Page, Liegeplatzplan) zum Oeffnen in neuem Tab. Es werden keine Zugangsdaten gespeichert. | Offen (neu) | Ersetzt das heutige manuelle Oeffnen vieler einzelner Webseiten. Kein Scraping passwortgeschuetzter Seiten. |
+| FE-UI-023 | Schiffsdaten (u. a. E-Mail-Adresse des Schiffes, Laenge, Breite) lassen sich im Formular hinterlegen und per Klick auf ein Schiff einsehen. | Offen (neu) | Zu BE-DAT-005. Anzeige als Seitenpanel oder Tooltip abstimmen; Quicklinks siehe FE-PLG-012. |
 
 ### Frontend: Plugin-Darstellung
 
@@ -47,11 +76,12 @@ Dieser Katalog ist die gemeinsame Grundlage fuer fachliche Abstimmungen, Erweite
 | FE-PLG-004 | Der gesamte vom Plugin als kritisch gemeldete Zeitraum erscheint als durchgehendes rotes Hintergrundband, auch zwischen ausgeblendeten Zahlenrasterpunkten. | Vorhanden | Nur der Zeitraumshintergrund ist rot; Windfelder und Pfeilhintergruende bleiben transparent, ohne zusaetzliche rote Einzelkaesten. Unkritische Nachbarwerte nicht kuenstlich als kritisch umfaerben. Fachliche Zeitgrenzen liefert das Plugin im verfuegbaren Datenraster; Luecken nicht ueberbruecken. |
 | FE-PLG-005 | Ein Wind-Button direkt rechts neben "Heute" in der Kalenderkopfzeile schaltet Windwerte und Warnzeitbaender gemeinsam ein/aus; derselbe Zustand wird im Plugin-Menue angezeigt. | Vorhanden | Button-Zustand erkennbar darstellen und je Benutzer im Browser speichern. Die gemeinsame Hafenaktivierung wird dadurch nicht ueberschrieben; weitere Plugins bleiben getrennt schaltbar. |
 | FE-PLG-006 | Ladefehler, fehlende Koordinaten, veraltete Daten und Zeitraeume ohne Daten zerstoeren den Kalender nicht. | Vorhanden | Verhalten bei ausschliesslich teilweise vorhandenen Zeitreihen weiter konkretisieren. |
-| FE-PLG-007 | Tide soll mit eigener Einheit, eigenem Zeitverlauf und eigenen Warnbaendern darstellbar sein. | Offen | Darstellung als Zahl, Kurve, Hoch-/Niedrigwasserereignis oder Kombination entscheiden. |
+| FE-PLG-007 | Tide soll mit eigener Einheit, eigenem Zeitverlauf und eigenen Warnbaendern darstellbar sein. | Offen | Darstellung als Zahl, Kurve, Hoch-/Niedrigwasserereignis oder Kombination entscheiden. Ergaenzung 27.10.2026: Nutzerwunsch ist Planungshilfe (Hamburg als Tidehafen); manuell vordefinierte Tidenfenster als Band siehe BE-PLG-006. |
 | FE-PLG-008 | Windanzeigen werden so dicht wie lesbar dargestellt; beim Herauszoomen wird erst ausgeduennt, wenn Zahl/Pfeil nicht mehr ausreichend Platz haben. Die Abstaende bleiben regelmaessig. | Vorhanden | Aktuelle UI-Referenz: Feld 32 x 34 CSS-Pixel, Mindestabstand fuer Rasterwahl 37 CSS-Pixel. Dies ersetzt die zwischenzeitlichen 64/40/32-Pixel-Abstaende. Schriftgroesse nicht zum Verdichten reduzieren; bei spaeteren Aenderungen Lesbarkeit und alle Richtungen pruefen. |
 | FE-PLG-009 | Neue Winddaten werden nach Ablauf der vom Server gemeldeten Cache-Laufzeit automatisch in der bestehenden Website nachgeladen; manuelles Neuladen ist nicht erforderlich. | Vorhanden | Server liefert `refreshAfterSeconds`; kein Keepalive zur Nutzererkennung hinzufuegen. Serverseitigen Abruf, Stundenfrist, Dateicache und Neustartverhalten getrennt in BE-PLG-003 regeln. |
 | FE-PLG-010 | Wind-Tooltips zeigen Zeitpunkt in UTC, Einheit, genaueren Windwert, meteorologische Herkunftsrichtung, Datenquelle und Abrufstand; Warnbaender nennen Anfang, Ende und Warnbeschreibung. | Vorhanden | Gerundete Zahl und Richtungsspitze ersetzen nicht den genauen Wert bzw. die Herkunftsrichtung im Tooltip. Veraltete Daten kennzeichnen; die angezeigte Genauigkeit bleibt durch die Anbieterwerte begrenzt. |
 | FE-PLG-011 | Die UI stellt nur den vom Anbieter tatsaechlich gelieferten Zeitbereich dar und laesst fehlende Werte offen, auch wenn ein laengerer Horizont angefragt wurde. | Vorhanden | Aktuell bis 16 Kalendertage einschliesslich Heute und zehn Tage Rueckblick angefragt, siehe BE-PLG-002. Ausserhalb des Zeitfensters Hinweis statt erfundener Windwerte; keine Vollstaendigkeit bis zum letzten angefragten Zeitpunkt zusagen. |
+| FE-PLG-012 | Ein Klick auf ein Schiff bietet Quicklinks: Live-Position bei MarineTraffic (ueber IMO/MMSI) und Wetter bei Windy (ueber aktuelle Position). | Offen (neu) | Zunaechst nur Links, keine eingebetteten Fremddaten. Eigene AIS-Positionsdaten nur nach Lizenzpruefung als Plugin (BE-PLG-007). Setzt IMO/MMSI in den Schiffsdaten voraus (BE-DAT-005). |
 
 ### Konkretisierte UI-Abnahmebeispiele
 
@@ -70,19 +100,28 @@ Diese Beispiele dokumentieren die zuletzt praezisierten UI-Wuensche. Sie ersetze
 
 | ID | Anforderung / pruefbares Verhalten | Stand | Abstimmung / Sonderfaelle |
 | --- | --- | --- | --- |
-| BE-PLAN-001 | Ein Schiff besitzt eine stabile technische Identitaet; der Importname bleibt in seiner Schreibweise erhalten und wird fuer Zuordnung normalisiert verglichen. | Vorhanden | Umgang mit Umbenennung, IMO-Nummer und wiederverwendeten Namen festlegen. |
-| BE-PLAN-002 | Proformas gehoeren dem Dienst; Schiffe referenzieren sie mit Wirksamkeitsdatum und ganzzahligem Wochenversatz. | Vorhanden | Schiffseinsaetze in mehreren Diensten und unterjaehrige Wechsel gesondert definieren. |
+| BE-PLAN-001 | Ein Schiff besitzt eine stabile technische Identitaet; der Importname bleibt in seiner Schreibweise erhalten und wird fuer Zuordnung normalisiert verglichen. | Vorhanden | Umgang mit Umbenennung, IMO-Nummer und wiederverwendeten Namen festlegen. Ergaenzung 27.10.2026: IMO/MMSI als Schiffsdatenfelder siehe BE-DAT-005. |
+| BE-PLAN-002 | Proformas gehoeren dem Dienst; Schiffe referenzieren sie mit Wirksamkeitsdatum und ganzzahligem Wochenversatz. | Vorhanden | Schiffseinsaetze in mehreren Diensten und unterjaehrige Wechsel gesondert definieren. Ergaenzung 27.10.2026: Der LTS liefert die Schiffsposition in der Rotation; Ableitung des Wochenversatzes aus der Position abstimmen (BE-INT-007/008). |
 | BE-PLAN-003 | Solange eine Zuordnung gilt, werden Reisen im Proforma-Zyklus wiederholt; eine spaetere Zuordnung ersetzt die vorherige fuer neue Runden. | Vorhanden | Explizites Gueltigkeitsende ohne Nachfolgezuordnung ist noch offen; siehe SF-002. |
-| BE-PLAN-004 | Ein gespeicherter tatsaechlicher Fahrplan ersetzt nur seine nominelle Runde und bleibt bei zeitlicher Verschiebung dieser Runde zugeordnet. | Vorhanden | Die aktuelle Identitaet ist der nominelle Startdatumsschluessel, nicht eine unabhaengige Reise-ID. |
-| BE-PLAN-005 | Die Verknuepfung zwischen tatsaechlicher Reise und konkreter Proforma-Runde bleibt bei grosser Verspaetung und erneutem Import erhalten. | Teilweise | Gespeicherte Schluessel bleiben stabil; erneuter Import ohne Reisevorgabe ordnet derzeit zeitbasiert zu. Anbieter-Reisenummern werden noch nicht zur Wiedererkennung genutzt. |
-| BE-PLAN-006 | Ein gespeicherter Ist-Fahrplan bleibt bei Aenderung einer Dienstvorlage unveraendert. | Vorhanden | Unveraenderliche Referenzversion fuer spaetere Plan-/Ist-Vergleiche ist noch zu definieren. |
+| BE-PLAN-004 | Ein gespeicherter tatsaechlicher Fahrplan ersetzt nur seine nominelle Runde und bleibt bei zeitlicher Verschiebung dieser Runde zugeordnet. | Vorhanden | Die aktuelle Identitaet ist der nominelle Startdatumsschluessel, nicht eine unabhaengige Reise-ID. Ergaenzung 27.10.2026: Ein Slide (BE-PLAN-017) verschiebt die nominellen Runden; die Umlauf-Identitaet ueber das Voyage-Paar (BE-PLAN-018) soll den Schluessel entkoppeln. |
+| BE-PLAN-005 | Die Verknuepfung zwischen tatsaechlicher Reise und konkreter Proforma-Runde bleibt bei grosser Verspaetung und erneutem Import erhalten. | Teilweise | Gespeicherte Schluessel bleiben stabil; erneuter Import ohne Reisevorgabe ordnet derzeit zeitbasiert zu. Anbieter-Reisenummern werden noch nicht zur Wiedererkennung genutzt. Ergaenzung 27.10.2026: Voyage-Paar als Vorrangschluessel vor zeitlicher Naehe, siehe BE-PLAN-018. |
+| BE-PLAN-006 | Ein gespeicherter Ist-Fahrplan bleibt bei Aenderung einer Dienstvorlage unveraendert. | Vorhanden | Unveraenderliche Referenzversion fuer spaetere Plan-/Ist-Vergleiche ist noch zu definieren. Ergaenzung 27.10.2026: Gilt sinngemaess fuer LTS-Updates (BE-INT-008). |
 | BE-PLAN-007 | Proforma-Versionen, Zuordnungswechsel und Wochenversatz liefern eine eindeutige gueltige Runde. | Teilweise | Wechsel waehrend einer laufenden Reise, Luecken, Enddatum und Referenzhistorie abstimmen. |
 | BE-PLAN-008 | Wiederholte Anlaeufe desselben Hafens besitzen getrennte Aufenthalts-IDs, auch wenn Terminal und Reise identisch sind. | Vorhanden | Importzuordnung bei mehreren gleichnamigen Besuchen muss gegen Verwechslung abgesichert werden; siehe SF-006. |
-| BE-PLAN-009 | Ad-hoc-Anlaeufe aendern nur die betroffene Reise, nicht automatisch die Dienstvorlage oder andere Runden. | Vorhanden | Anlauf nach dem letzten Hafen, ausgelassene Anlaeufe und bewusste Dauerabweichungen abstimmen. |
-| BE-PLAN-010 | Change of Rotation ordnet die bestehende Runde neu und berechnet Transitwerte zwischen den neuen Nachbarn. | Teilweise | Aktuell chronologische Reparatur ohne Zeitaenderung; bewusste neue Reihenfolge und dauerhafter Rotationswechsel sind gesonderte Anforderungen. |
+| BE-PLAN-009 | Ad-hoc-Anlaeufe aendern nur die betroffene Reise, nicht automatisch die Dienstvorlage oder andere Runden. | Vorhanden | Anlauf nach dem letzten Hafen, ausgelassene Anlaeufe und bewusste Dauerabweichungen abstimmen. Ergaenzung 27.10.2026: Nutzer nennt Hinzufuegen eines Hafens der Rotation oder eines fremden Hafens (FE-UI-021). |
+| BE-PLAN-010 | Change of Rotation ordnet die bestehende Runde neu und berechnet Transitwerte zwischen den neuen Nachbarn. | Teilweise | Aktuell chronologische Reparatur ohne Zeitaenderung; bewusste neue Reihenfolge und dauerhafter Rotationswechsel sind gesonderte Anforderungen. Ergaenzung 27.10.2026: Bedienung siehe FE-UI-021. |
 | BE-PLAN-011 | Transitpruefung beruecksichtigt Entfernung und Schiffsgeschwindigkeit; Liegeplatz- und Folgereiseueberschneidungen werden erkannt. | Vorhanden | Gleiches Terminal in Folge, fehlende Streckenwerte, Sicherheitsabstaende und tatsaechliche Hafenwechsel abstimmen. |
-| BE-PLAN-012 | Die Konfliktbehandlung unterscheidet manuelle Planuebernahme und Import. | Vorhanden | Derzeit blockieren neue manuelle Konflikte die Uebernahme; Importkonflikte werden gewarnt und gespeichert. Verbindliche Ausnahmen/Freigaben festlegen. |
-| BE-PLAN-013 | Phase-in, Phase-out und Ersatzschiffe steuern den Einsatz ohne Loeschen der Vergangenheit. | Offen | Regeln in SF-001 bis SF-004 beschliessen, bevor automatische Runden dafuer erzeugt werden. |
+| BE-PLAN-012 | Die Konfliktbehandlung unterscheidet manuelle Planuebernahme und Import. | Vorhanden | Derzeit blockieren neue manuelle Konflikte die Uebernahme; Importkonflikte werden gewarnt und gespeichert. Verbindliche Ausnahmen/Freigaben festlegen. Ergaenzung 27.10.2026: Erwartete Ueberlappung bei Phase-in/out als eigene Klasse, siehe BE-PLAN-020. |
+| BE-PLAN-013 | Phase-in, Phase-out und Ersatzschiffe steuern den Einsatz ohne Loeschen der Vergangenheit. | Offen | Regeln in SF-001 bis SF-004 beschliessen, bevor automatische Runden dafuer erzeugt werden. Ergaenzung 27.10.2026: Paarbildung und Parallellauf siehe BE-PLAN-019 und SF-015. |
+| BE-PLAN-014 | Soll-Ebenen sind getrennt: Proforma (Dienstvorlage), LTS (vereinbarte Fenster plus Schiffsposition) und Ist/Entwurf. Die Bezugsbasis fuer das Delta ist eindeutig festgelegt. | Offen (neu) | SF-017. Der LTS-Fensterstand darf die Dienstvorlage nicht still ueberschreiben. |
+| BE-PLAN-015 | Das Delta je Anlauf (frueh/pünktlich/spaet, in Stunden gegen das Fenster) wird als reine Funktion berechnet, auch fuer offene Entwuerfe. | Offen (neu) | Ankunft gegen Fensterbeginn, Abfahrt gegen Fensterende? Grenzen inklusive? Verhalten nach Slide siehe SF-016/017. |
+| BE-PLAN-016 | Auswirkungsanalyse beim Verschieben: Puffer bis Fensterende und bis Folgehafen, betroffene Schiffe und Dienste samt Verursacher, auch dienstuebergreifend. | Teilweise (neu) | BE-PLAN-011 erkennt Ueberschneidungen und Transit. Offen: Folgeverspaetung (Warten auf belegten Liegeplatz) und Zuordnung Verursacher/Betroffene. |
+| BE-PLAN-017 | Slide/Rebaseline: Dienst oder einzelne Schiffe um n Wochen versetzen. Ist-Zeiten bleiben unveraendert, Rundenschluessel und Referenzen werden atomar auf die neue nominelle Runde umgehaengt, mit Vorschau alt zu neu. | Offen (neu) | SF-016. Verhaeltnis zu einem neu importierten LTS (BE-INT-008) und zum Wochenversatz (BE-PLAN-002) klaeren. |
+| BE-PLAN-018 | Die Umlauf-Identitaet laeuft ueber das Voyage-Paar (Westbound/Eastbound, Turnport). Bei Phase-out gibt es nur eine Nummer plus Platzhalter. Das Paar hat Vorrang vor zeitlicher Naehe beim Zuordnen. | Teilweise (neu) | BE-PLAN-005 und BE-INT-004 decken Reisenummern erst teilweise. Stuetzt SF-006/008/011. |
+| BE-PLAN-019 | Phase-in/out-Paar: zwei Schiffe in einer Position mit Rolle und Verknuepfung. Der Anlauf traegt eine Rolle (Laden/Loeschen/beides/ausgelassen) und optional eine Feeder-Verbindung zum Phase-in-Schiff. | Offen (neu) | Konkretisiert BE-PLAN-013. Das Phase-out-Schiff kann die volle Rotation oder gebuendelte Haefen fahren; Mischformen sind moeglich. SF-015. |
+| BE-PLAN-020 | Erwartete Ueberlappung (Parallellauf Phase-in/out) ist eine eigene Konfliktklasse (Hinweis statt Blockade) mit protokollierter Begruendung. Konflikte mit Dritten bleiben Konflikte. | Offen (neu) | Zu BE-PLAN-012 und SF-013. Nutzer will das Phase-out-Schiff durch die Rotation bringen, ohne das bestehende Netzwerk und die regulaeren Proforma-Fenster zu gefaehrden. |
+| BE-PLAN-021 | Haefen tragen eine Region. Asien-Anlaeufe sind Kontext der Rotation, aber ausblendbar (z. B. nur Europa). | Offen (neu) | Sollen Asien-Anlaeufe gespeichert oder nur importiert werden? Turnport als Grenze der Europa-Sicht. |
+| BE-PLAN-022 | Freie Fenster je Liegeplatz/Terminal ab einer Mindestliegedauer werden berechnet. | Offen (neu) | Liegeplatzattribute (Laenge, Tiefe) nur, wenn das Passen eines Schiffes geprueft werden soll; Schiffslaenge siehe BE-DAT-005. |
 
 ### Backend: Datenhaltung und Schnittstellen
 
@@ -92,12 +131,17 @@ Diese Beispiele dokumentieren die zuletzt praezisierten UI-Wuensche. Sie ersetze
 | BE-DAT-002 | JSON-Speicherung, Validierung und Datenpruefsumme verhindern unbeabsichtigtes Ueberschreiben neuerer Planungsdaten. | Vorhanden | Mehrdatei-Aenderungen haben Ruecksetzung bei Schreibfehlern, aber keine absturzsichere Datenbanktransaktion. |
 | BE-DAT-003 | Mehrbenutzerbetrieb hat definierte Regeln fuer konkurrierende Entwuerfe, Konflikte und gemeinsame Uebernahmen. | Teilweise | Derzeit gemeinsame Fachdaten, lokale Entwuerfe und optimistische Pruefsumme; keine Reservierungen oder verteilten Sperren. |
 | BE-DAT-004 | Sicherung, Wiederherstellung, Migration und Aenderungshistorie sind nachvollziehbar spezifiziert. | Offen | Aufbewahrung, Ruecknahme einer Uebernahme, Audit und Datenverlustziel festlegen. |
+| BE-DAT-005 | Zu jedem Schiff koennen Stammdaten hinterlegt werden: Name, E-Mail-Adresse des Schiffes, Laenge, Breite; optional IMO, MMSI, Tiefgang, Geschwindigkeit. | Teilweise (neu) | Vorhanden sind laut Katalog mindestens Schiffsname und die fuer die Transitpruefung genutzte Geschwindigkeit. Feldliste, Pflichtfelder und Zugriffsrechte abstimmen; IMO/MMSI nur noetig fuer FE-PLG-012. Schnittstelle zu internen Systemen siehe BE-INT-009. |
+| BE-DAT-006 | Benannte Szenarien lassen sich speichern, wieder laden und mit dem Ist vergleichen. | Offen (neu) | Derzeit nur lokale Entwuerfe (FE-UI-008). Lokal oder serverseitig, mit oder ohne Teilen zwischen Benutzern, abstimmen (BE-DAT-003). |
 | BE-INT-001 | Anbieteradapter liefern ein gemeinsames Importformat mit Quelle, Schiff, Zeitraum, Hafenanlaeufen und Quellen-Reisenummern. | Vorhanden | Datenvertrag versionieren; neue Anbieter duerfen Fachlogik nicht duplizieren. |
 | BE-INT-002 | Einzel- und Dienstimport bieten Vorschau, explizite Hafenzuordnung, Ignorieren und Bestaetigung von Entfernungen und Zeitbasis. | Vorhanden | Fehler einzelner Schiffe erfordern derzeit ausdruecklichen Ausschluss statt stiller Teiluebernahme. |
 | BE-INT-003 | Import aktualisiert nur den gewaehlten Reise-/Zeitbereich; Aufenthalte ausserhalb bleiben geschuetzt. | Vorhanden | Grenze ist aktuell die Ankunft; bereits laufende Aufenthalte und Reisen ueber mehrere Fenster siehe SF-010/SF-011. |
-| BE-INT-004 | Import erkennt bereits bekannte Reisen und Aufenthalte unabhaengig von geaenderten Ankunftszeiten wieder. | Teilweise | Aktuell Runde zeitbasiert/waehlbar, Besuchsauswahl ueber Terminal und zeitliche Naehe. Stabile Anbieter-IDs und Mehrdeutigkeitsdialog fehlen. |
+| BE-INT-004 | Import erkennt bereits bekannte Reisen und Aufenthalte unabhaengig von geaenderten Ankunftszeiten wieder. | Teilweise | Aktuell Runde zeitbasiert/waehlbar, Besuchsauswahl ueber Terminal und zeitliche Naehe. Stabile Anbieter-IDs und Mehrdeutigkeitsdialog fehlen. Ergaenzung 27.10.2026: Voyage-Paar siehe BE-PLAN-018. |
 | BE-INT-005 | Live-Abrufe haben Grenzen, Fehlermeldungen und einen zulaessigen manuellen Ersatzweg. | Teilweise | Maersk-Abruf und Hapag-Adapter vorhanden; Hapag-Sicherheitspruefung kann Automation blockieren. Kopier-/Dateiformate und offizielle APIs separat festlegen. |
 | BE-INT-006 | Zeitzonen und Sommerzeit werden beim Import eindeutig in gemeinsame Planzeit ueberfuehrt. | Teilweise | Derzeit ausdrueckliche Uebernahmebestaetigung fuer naive UTC-Planzeit; automatische Anbieter-/Hafenzeitzonen-Konvertierung nicht zugesagt. |
+| BE-INT-007 | Excel-Adapter fuer Proforma und LTS liefern das gemeinsame Importformat (BE-INT-001), einschliesslich Region, Schiffsposition, vereinbarten Fenstern und Phase-in/out-Markern. | Offen (neu) | Beispieldateien noetig; Spaltenaufbau und Regionsblock sind unbekannt. Der "Phase out"-Platzhalter ohne ausgehende Voyage ist kein Importfehler (SF-015). |
+| BE-INT-008 | Ein Basisdaten-Update (neuer LTS oder Proforma) aendert nie die Ist-Zeiten bestehender Schiffe. Es gibt eine Diff-Vorschau und eine ausdrueckliche Bestaetigung bei geaenderter Schiffsposition. | Offen (neu) | SF-018. Ein verspaetetes Schiff darf nach dem Import nicht als puenktlich gelten. Dialog siehe FE-UI-018. |
+| BE-INT-009 | Schnittstelle zu internen Systemen fuer Schiffsdaten und geplante Moves je Liegefenster (eigene und Partner). | Offen (neu) | Nice-to-have; derzeit keine Schnittstelle moeglich. Bis dahin hoechstens optionale manuelle Felder; nichts erzwingen. |
 
 ### Backend: Plugins und Betrieb
 
@@ -107,7 +151,9 @@ Diese Beispiele dokumentieren die zuletzt praezisierten UI-Wuensche. Sie ersetze
 | BE-PLG-002 | Wetter wird standortbezogen in kn/Richtung mit 3-Stunden-Werten, zehn Tagen Rueckblick und maximalem Anbieter-Vorschauhorizont geliefert (aktuell 16 Kalendertage einschliesslich Heute). | Vorhanden | Modell-/API-Verfuegbarkeit begrenzt den Horizont; keine Messdatenzusage. |
 | BE-PLG-003 | Bedarfsgesteuerter Datenabruf, neustartfester Stunden-Cache, Warnschwelle und Zusammenfassung kritischer Windabschnitte liegen im Plugin. | Vorhanden | Ohne Zugriffe kein externer Hintergrundabruf und kein Keepalive; 3-Stunden-Aufloesung, stale Daten und Schwellenwerte sind keine sicherheitsverbindliche Betriebsfreigabe. |
 | BE-PLG-004 | Plugin-Ausfaelle oder deaktivierte Plugins veraendern keine Fahrplaene und blockieren deren Bedienung nicht. | Vorhanden | Rate Limits, Providerwechsel und belastbare Verfuegbarkeitsziele fuer produktiven Betrieb klaeren. |
-| BE-PLG-005 | Tide wird aus einer geeigneten Quelle mit Stationszuordnung, Hoehenbezug, Einheit und Warnregeln geliefert. | Offen | Nicht allein Koordinaten verwenden: Bezugsniveau, Pegelstation, Zeitbasis und Bezug zu Tiefgang/UKC klaeren. |
+| BE-PLG-005 | Tide wird aus einer geeigneten Quelle mit Stationszuordnung, Hoehenbezug, Einheit und Warnregeln geliefert. | Offen | Nicht allein Koordinaten verwenden: Bezugsniveau, Pegelstation, Zeitbasis und Bezug zu Tiefgang/UKC klaeren. Ergaenzung 27.10.2026: Als Datenquelle z. B. amtliche Pegel-/Vorhersagedienste pruefen; Verfuegbarkeit und Lizenz vorher klaeren. |
+| BE-PLG-006 | Tidenfenster sind je Terminal manuell vordefinierbar und wirken als Warnregel (nicht als Blockade); spaeter mit Datenquelle aus BE-PLG-005. | Offen (neu) | Zwei Stufen: erst manuelle Fenster (z. B. Hamburg), dann Plugin-Quelle. Tiefgangsabhaengigkeit und Warnung bei Ein-/Auslaufzeit abstimmen; SF-014. |
+| BE-PLG-007 | Optionales Plugin fuer eigene AIS-Positionsdaten. | Offen (neu) | Nur nach Lizenz- und Kostenpruefung; bis dahin genuegen die Quicklinks aus FE-PLG-012. |
 | BE-OPS-001 | Anmeldung, Passwort-Hashes, Sitzungen und CSRF-Schutz sichern UI und Fach-APIs. | Vorhanden | Benutzeranlage erfolgt derzeit per CLI; Rollen, Leserechte und Freigaberechte sind offen. |
 | BE-OPS-002 | Produktiver Betrieb hat passende API-Lizenzen, HTTPS, Datensicherung und einen geeigneten Server. | Offen | Der aktuelle lokale Prototyp ist keine Produktionsfreigabe; Open-Meteo-Vertragsmodell beachten. |
 
@@ -131,6 +177,42 @@ Diese Faelle sind ein eigener Diskussionskatalog, keine pauschale Zusage bereits
 | SF-012 | Auslassen / Hinzufuegen / Abbruch; BE-PLAN-008/009, BE-INT-002 | Bewusster ausgelassener Hafen vs. fehlende Daten, neuer Anlauf vor/nach der Route und Teilabbruch unterscheiden. Gilt die Aenderung nur fuer diese Reise oder fuer kuenftige Runden? |
 | SF-013 | Konflikte und Freigaben; BE-PLAN-011/012 | Was ist Hinweis, Warnung oder harter Fehler? Beispiel: Import mit zu kurzer Transitzeit wird gespeichert; darf dieselbe Situation manuell bestaetigt werden, und muss eine Begruendung protokolliert werden? |
 | SF-014 | Wetter-/Tidegrenze; BE-PLG-002/003/005 | Vergleich ab Grenzwert inklusive? Was passiert bei Datenluecken, Stationswechsel oder veralteten Daten? Warnung an einem Termin von Warnung innerhalb eines Zeitbereichs unterscheiden. |
+| SF-015 | Phase-out im Parallellauf; BE-PLAN-013/018/019/020, BE-INT-007 | Das Phase-out-Schiff steht im LTS nur als "Phase out" ohne ausgehende Voyage, das Phase-in-Schiff laeuft in derselben Position. Varianten: gleiche Rotation (einer laedt, einer loescht), gebuendelte Haefen mit Feeder, Mischformen. Wie wird das Paar erkannt, dargestellt und gegen Dritte geprueft? |
+| SF-016 | Slide mit Blank Sailing; BE-PLAN-004/015/017, FE-UI-018 | Eine Woche entfaellt, A rueckt auf B, B auf C. Gilt der Slide fuer den ganzen Dienst oder einzelne Schiffe? Ist-Zeiten bleiben, Delta nach dem Slide wieder gegen die neue Position. Was passiert mit Vergangenheit und mit bereits gespeicherten Runden? |
+| SF-017 | Bezugsbasis des Delta; BE-PLAN-014/015 | Proforma oder LTS-vereinbart? Nach einem Slide gegen die neue oder die historische Baseline? Wie wird die Abweichung bei Fenstern (von-bis) gemessen? |
+| SF-018 | LTS-Reimport bei geaenderter Schiffsposition; BE-INT-008 | Welche Position gilt, wenn Ist-Daten schon abweichen? Was passiert mit Schiffen, die im neuen LTS fehlen, und mit neuen Schiffen? Aenderung nur nach ausdruecklicher Bestaetigung? |
+
+### Entwurf: Abnahmebeispiele Fachlogik (noch nicht abgestimmt)
+
+Die Beispiele nutzen Platzhalterwerte und stehen unter dem Vorbehalt der offenen Entscheidungen (insbesondere SF-016 bis SF-018). Sie sollen als Vorlage fuer automatisierte Tests dienen.
+
+| Anforderungen | Gegeben / Wenn | Dann |
+| --- | --- | --- |
+| BE-PLAN-015 | Das Fenster in Hafen B endet am 10.03. um 18:00; die Abfahrt des Entwurfs liegt am 10.03. um 22:00. | Delta der Abfahrt: +4 h (spaet). Unter Vorbehalt von SF-017 (Messregel fuer Fenster). |
+| BE-PLAN-017, SF-016 | Schiff A hat gespeicherte Ist-Zeiten mit +7 Tagen gegen die alte nominelle Runde. Der Dienst wird um +1 Woche geslidet. | Ist-Zeiten bleiben unveraendert; die Referenz haengt an der neuen nominellen Runde; Delta nahe 0; Vergangenheit unveraendert; die Vorschau zeigt das Mapping alt zu neu vor der Uebernahme. |
+| BE-INT-008, SF-018 | Schiff A hat gespeicherte Ist-Zeiten mit +2 Tagen. Ein neuer LTS ohne Aenderung fuer A wird importiert. | Ist-Zeiten bleiben; Delta weiter +2 Tage; nur Soll-Fenster und Position werden aktualisiert; eine geaenderte Position wird erst nach Bestaetigung uebernommen. |
+| BE-PLAN-019/020, SF-015 | Im LTS steht Schiff X als "Phase out" ohne ausgehende Voyage, Schiff Y als Phase-in in derselben Position. | Kein Importfehler; das Paar ist erkennbar; die Ueberlappung zwischen X und Y gilt als erwartet; Konflikte nur bei Kollision mit Dritten. |
+
+### Rueckverfolgung: Nutzerwunsch zu Anforderungen
+
+| Nutzerwunsch (Sprachnachricht) | Anforderungen |
+| --- | --- |
+| Zentrales Tool statt vieler einzelner Quellen und Webseiten | FE-UI-022, FE-PLG-012, BE-INT-007, BE-INT-009 |
+| Grafische Rotation je Dienst, nur Region Europa | FE-UI-003, FE-UI-017, BE-PLAN-021 |
+| Overlap- und Zeitprueung zwischen Liegeplaetzen | BE-PLAN-011 |
+| Szenarien durch Verschieben ("Kann ich das, ohne in Hafen B zu spaet zu sein?") | FE-UI-005/006/016, BE-PLAN-016, BE-DAT-006 |
+| Versatz zum Proforma sehen (zu frueh/spaet) | FE-UI-015, BE-PLAN-014/015, SF-017 |
+| Proforma und LTS aus Excel, Update ohne Ueberschreiben bestehender Verspaetungen | BE-INT-007/008, BE-PLAN-006, SF-018 |
+| Change of Rotation, Haefen hinzufuegen | BE-PLAN-009/010, FE-UI-021, SF-005 |
+| Slide eines ganzen Dienstes | BE-PLAN-017, FE-UI-018, SF-016 |
+| Phase-in/out, Parallellauf, Feeder, Mischformen | BE-PLAN-013/019/020, FE-UI-019, SF-001 bis SF-004, SF-015 |
+| Voyage-Nummern (Westbound/Eastbound, Turnport) | BE-PLAN-018, BE-INT-004, SF-006/008/011 |
+| Hafenfilter und freie Kapazitaet (z. B. Hamburg Eurogate) | FE-UI-007/017/020, BE-PLAN-022 |
+| Wen beeinflusse ich negativ? | BE-PLAN-016, FE-UI-016 |
+| Tidenfenster | FE-PLG-007, BE-PLG-005/006 |
+| Live-Position und Windy-Link | FE-PLG-012, BE-PLG-007 |
+| Schiffsdaten (E-Mail-Adresse, Breite, Laenge) hinterlegen | BE-DAT-005, FE-UI-023 |
+| Moves je Liegefenster, interne Systeme (Nice-to-have) | BE-INT-009 |
 
 ### Entscheidungen und Abnahmekriterien pflegen
 
@@ -145,7 +227,7 @@ Zu einer abgestimmten Anforderung werden die folgenden Felder ergaenzt, beispiel
 | Nachweis | Testfall oder manuelle Desktoppruefung; umgesetzt, geprueft und fachlich abgenommen getrennt vermerken. |
 | Aenderung | Datum und Bezug zur vorherigen Entscheidung; IDs nicht still umdeuten. |
 
-Empfohlener Beginn der Abstimmung: SF-001/SF-002 (Einsatzgrenzen), SF-008 (Reiseidentitaet trotz Verspaetung) und SF-009 (Proforma-Wechsel). Diese Entscheidungen beeinflussen Datenmodell und Importe und sollten vor zusaetzlicher Automatik geklaert werden.
+**Empfohlener Beginn der Abstimmung:** SF-017 (Bezugsbasis des Delta), BE-PLAN-018 (Voyage-Paar als Identitaet), SF-016 (Slide), danach die Excel-Importe BE-INT-007/008 mit Beispieldateien. Parallel bleiben SF-001/SF-002 (Einsatzgrenzen), SF-008 (Reiseidentitaet trotz Verspaetung) und SF-009 (Proforma-Wechsel) wichtig, weil sie Datenmodell und Importe beeinflussen. Erst danach Delta/Impact (BE-PLAN-015/016), Phase-in/out (SF-015) sowie Region, freie Fenster, Tide und Quicklinks angehen.
 
 ## Start
 
