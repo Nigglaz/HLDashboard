@@ -271,10 +271,9 @@ function visibleVoyages(ship) {
   return [...result.values()].filter((voyage) => Math.min(...voyage.stops.map((stop) => instant(stop.arrival))) < END && Math.max(...voyage.stops.map((stop) => instant(stop.departure))) >= START);
 }
 
-function transitRow(position, port, nextPort, voyages) {
+function transitRow(position, port, nextPort, voyages, backgroundBands) {
   const ship = working.find((item) => item.id === selected);
-  const todayStart = localToday();
-  let content = todayStart >= START && todayStart < END ? `<span class="today-band" style="left:${(todayStart - START) / DAY * dayWidth}px;width:${dayWidth}px"></span>` : '';
+  let content = backgroundBands;
   let needsRotation = false;
   for (const voyage of voyages) {
     for (const [index, stay] of voyage.stops.entries()) {
@@ -326,7 +325,7 @@ function renderChart() {
   const chartShips = mode === 'proformas' ? working.filter((item) => item.id === selected) : working;
   for (const [position, port] of ports.entries()) {
     if (position && !harborOverview) {
-      html += transitRow(position - 1, ports[position - 1], port, selectedVoyages);
+      html += transitRow(position - 1, ports[position - 1], port, selectedVoyages, weekendBands);
     }
     const canInsert = route.some((stop) => stop.portId === port.id);
     const addButton = !harborOverview && mode === 'planning' ? `<button type="button" class="add-port-button" data-add-port="${port.id}" ${canInsert ? '' : 'disabled'} title="Zus\u00e4tzlichen Hafen vor diesem Aufenthalt einf\u00fcgen">+ Hafen hinzuf\u00fcgen</button>` : '';
@@ -350,7 +349,7 @@ function renderChart() {
       html += `<div class="berth-row" data-port="${port.id}" data-berth="${berth}"><div class="berth-label">Liegeplatz ${berth}</div><div class="track" style="width:${DAYS * dayWidth}px">${weekendBands}${bars}</div></div>`;
     }
   }
-  if (ports.length && !harborOverview) html += transitRow(ports.length - 1, ports.at(-1), null, selectedVoyages);
+  if (ports.length && !harborOverview) html += transitRow(ports.length - 1, ports.at(-1), null, selectedVoyages, weekendBands);
   if (!ports.length && harborOverview) html += '<div class="empty-ports">Keine H\u00e4fen ausgew\u00e4hlt</div>';
   if (!ports.length && !harborOverview) html += '<div class="empty-ports">Kein Fahrplan f\u00fcr diesen Zeitraum vorhanden</div>';
   chart.innerHTML = html;
