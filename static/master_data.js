@@ -16,6 +16,14 @@ function readShipAssignments() {
   })).filter((item) => item.proformaId || item.validFrom);
 }
 
+function renderPluginLocations(record, fleet) {
+  $('#master-port-plugins').open = false;
+  if (globalThis.PortPlugins) PortPlugins.mountSettings($('#master-plugin-locations'), fleet ? null : record || {});
+}
+
+document.addEventListener('phoca-plugins-ready', () => {
+  if (mode === 'ports' && !masterDataDirty) renderPluginLocations(saved.ports.find(port => port.id === masterRecordId), false);
+});
 function renderMasterPanel(kind) {
   if (masterKind !== kind) { masterKind = kind; masterRecordId = undefined; }
   const fleet = kind === 'fleet', records = fleet ? saved.ships : saved.ports;
@@ -38,11 +46,7 @@ function renderMasterPanel(kind) {
   $('#master-berths').required = !fleet;
   $('#master-berths').value = record?.berths ?? '';
   $('#master-aliases').value = JSON.stringify(record?.aliases || {}, null, 2);
-    $('#master-latitude').value = fleet ? '' : record?.coordinates?.latitude ?? '';
-    $('#master-longitude').value = fleet ? '' : record?.coordinates?.longitude ?? '';
-    $('#master-wind-warning').value = fleet ? '' : record?.plugins?.weather?.warningWindKnots ?? '';
-    $('#master-weather-enabled').checked = record?.plugins?.weather?.enabled !== false;
-    for (const selector of ['#master-latitude', '#master-longitude', '#master-wind-warning']) $(selector).disabled = fleet;
+  renderPluginLocations(record, fleet);
   $('#master-distances').innerHTML = fleet ? '' : saved.ports.filter((port) => port.id !== record?.id).map((port) => `<label>${escapeHtml(port.name)} <small>${escapeHtml(port.id)}</small><input type="number" min="0" step="0.1" data-distance-port="${escapeHtml(port.id)}" value="${record?.distancesNm?.[port.id] ?? port.distancesNm?.[record?.id] ?? ''}" required></label>`).join('');
   renderShipAssignments(fleet ? record : null);
   $('#master-plan-info').textContent = fleet ? record ? `${record.proformaAssignments.length} Proforma-Zuordnungen / ${Object.keys(record.voyages).length} gespeicherte Reisen` : 'Neues Schiff ohne Fahrplan' : '';
@@ -55,6 +59,9 @@ $('#tab-fleet').addEventListener('click', () => switchMode('fleet'));
 $('#tab-ports').addEventListener('click', () => switchMode('ports'));
 $('#master-form').addEventListener('input', () => { masterDataDirty = true; });
 $('#master-form').addEventListener('change', () => { masterDataDirty = true; });
+$('#master-form').addEventListener('invalid', (event) => {
+  if ($('#master-port-plugins').contains(event.target)) $('#master-port-plugins').open = true;
+}, true);
 $('#master-new').addEventListener('click', () => {
   if (masterDataDirty && !confirm('Ungespeicherte Stammdaten verwerfen?')) return;
   masterRecordId = null;
@@ -96,13 +103,11 @@ $('#master-form').addEventListener('submit', async (event) => {
     if (fleet) Object.assign(payload, {vesselName: $('#master-vessel').value.trim(), serviceId: $('#master-service').value.trim(), maxSpeedKnots: Number($('#master-speed').value), proformaAssignments: readShipAssignments()});
     else {
       const original = saved.ports.find((port) => port.id === masterRecordId);
-      const latitude = $('#master-latitude').value, longitude = $('#master-longitude').value;
-      if ((latitude === '') !== (longitude === '')) throw new Error('Breiten- und Laengengrad gemeinsam angeben.');
+      const pluginData = PortPlugins.readSettings(original);
+      const locations = pluginData.pluginLocations || [];
       Object.assign(payload, {berths: Number($('#master-berths').value), aliases: JSON.parse($('#master-aliases').value),
         distancesNm: Object.fromEntries([...document.querySelectorAll('[data-distance-port]')].map((input) => [input.dataset.distancePort, Number(input.value)])),
-        coordinates: latitude === '' ? null : {latitude: Number(latitude), longitude: Number(longitude)},
-        plugins: {...(original?.plugins || {}), weather: {...(original?.plugins?.weather || {}), enabled: $('#master-weather-enabled').checked,
-          warningWindKnots: $('#master-wind-warning').value === '' ? null : Number($('#master-wind-warning').value)}}});
+        coordinates: original?.coordinates || locations[0]?.coordinates || null, ...pluginData});
     }
     saving = true;
     $('#master-save').disabled = true;

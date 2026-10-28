@@ -14,7 +14,7 @@
   <script src="{{ url_for('static', filename='auth.js') }}" defer></script>
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
   <script src="{{ url_for('static', filename='master_data.js') }}" defer></script>
-   <script src="{{ url_for('static', filename='port_plugins.js') }}" defer></script>
+   <script src="{{ url_for('static', filename='plugin_host.js') }}" defer></script>
 </head>
 <body data-user="{{ g.user.email }}">
   <header class="app-header">
@@ -34,7 +34,7 @@
           <div class="master-fields"><label>Technische ID<input id="master-id" pattern="[a-z0-9][a-z0-9_-]{0,63}" maxlength="64"></label><label>Anzeigename<input id="master-name" required maxlength="160"></label>
           <label data-master-kind="fleet">Eindeutiger Importname<input id="master-vessel" maxlength="120"></label><label data-master-kind="fleet">Dienst<input id="master-service" list="master-services" maxlength="40"><datalist id="master-services"></datalist></label><label data-master-kind="fleet">Maximalgeschwindigkeit (kn)<input id="master-speed" type="number" min="0.1" step="0.1"></label><label data-master-kind="ports">Liegepl&auml;tze<input id="master-berths" type="number" min="1" max="200" step="1"></label></div>
           <label data-master-kind="ports" class="master-aliases">Alternative Hafennamen (JSON: Datenquelle &rarr; Namensliste)<textarea id="master-aliases" rows="6" spellcheck="false">{}</textarea></label>
-           <section data-master-kind="ports" class="port-plugin-settings"><h2>Standort &amp; Hafen-Plugins</h2><div class="master-fields"><label>Breitengrad<input id="master-latitude" type="number" min="-90" max="90" step="any"></label><label>L&auml;ngengrad<input id="master-longitude" type="number" min="-180" max="180" step="any"></label><label>Windwarnung ab (kn)<input id="master-wind-warning" type="number" min="0.1" step="0.1"></label></div><label class="checkbox-label"><input id="master-weather-enabled" type="checkbox" checked> Wind-Plugin aktiv</label></section>
+          <details id="master-port-plugins" data-master-kind="ports" class="port-plugin-settings"><summary>Standort &amp; Hafen-Plugins</summary><div id="master-plugin-locations" class="plugin-location-list"></div></details>
           <section data-master-kind="fleet" class="assignment-section"><h2>Proforma-Zuordnungen</h2><div id="ship-proforma-assignments"></div><button id="assignment-add" type="button" class="button">Zuordnung hinzuf&uuml;gen</button></section>
           <section data-master-kind="ports"><h2>Entfernungen (sm)</h2><div id="master-distances" class="master-distances"></div></section>
           <p id="master-plan-info" class="muted"></p><p id="master-error" class="form-error" role="alert"></p>
@@ -105,7 +105,7 @@
       </aside>
 
       <section class="schedule" aria-label="Hafen-Zeitleiste">
-        <div class="schedule-top"><div class="schedule-heading"><button id="sidebar-toggle" class="button icon" type="button" aria-controls="fleet-sidebar" aria-expanded="true" aria-label="Flottenuebersicht ausblenden" title="Flottenuebersicht ausblenden"><i data-lucide="panel-left-close" aria-hidden="true"></i></button><div><strong>Liegeplatzbelegung</strong><span id="visible-range" class="muted"></span></div><button id="today" class="button" type="button">Heute</button><button id="weather-toggle" class="button port-weather-toggle" type="button" aria-label="Windanzeige" aria-pressed="true" title="Windanzeige ausblenden" disabled><i data-lucide="wind" aria-hidden="true"></i> Wind</button></div><div class="legend"><span><b class="swatch selected"></b>Ausgew&auml;hlt</span><span id="service-legend" class="service-legend"></span><span><b class="swatch draft"></b>Entwurf</span><span><b class="swatch baseline"></b>Bisher</span></div></div>
+        <div class="schedule-top"><div class="schedule-heading"><button id="sidebar-toggle" class="button icon" type="button" aria-controls="fleet-sidebar" aria-expanded="true" aria-label="Flottenuebersicht ausblenden" title="Flottenuebersicht ausblenden"><i data-lucide="panel-left-close" aria-hidden="true"></i></button><div><strong>Liegeplatzbelegung</strong><span id="visible-range" class="muted"></span></div><button id="today" class="button" type="button">Heute</button><span id="plugin-toolbar"></span></div><div class="legend"><span><b class="swatch selected"></b>Ausgew&auml;hlt</span><span id="service-legend" class="service-legend"></span><span><b class="swatch draft"></b>Entwurf</span><span><b class="swatch baseline"></b>Bisher</span></div></div>
         <div id="chart-scroll" class="chart-scroll"><div id="chart" class="chart"></div></div>
         <footer class="chart-footer"><span><span class="live-dot"></span> <span id="status">Bereit</span></span><span>Planzeit UTC &middot; 1-h-Raster <span class="desktop-only">&middot; <span id="stop-count">30</span> Aufenthalte</span></span></footer>
       </section>

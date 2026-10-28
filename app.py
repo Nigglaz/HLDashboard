@@ -9,21 +9,22 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import Flask, jsonify, render_template, request, send_from_directory, abort
 from planning import change_rotation, conflicts, insert_adhoc_stop, migrate_service_proformas, resolve_voyage, validate_service_proforma, validate_ship, validate_stations
 from schedule_import import parse_maersk_text, prepare_import, prepare_service_import, vessel_identifier, vessel_key
 from master_data import rename_port_references, update_port_metadata, update_ship_metadata
 from auth import register_auth
 from port_plugins import PortPluginRegistry
+from plugin_runtime import plugin_file
 
 
-def create_app(data_root=None, auth_root=None):
+def create_app(data_root=None, auth_root=None, plugin_root=None):
     app = Flask(__name__)
     root = Path(data_root) if data_root else Path(__file__).parent / "data"
     lock = threading.Lock()
     live_import_lock = threading.Lock()
     runtime_root = Path(auth_root) if auth_root is not None else (root / '.runtime' if data_root is not None else Path(app.instance_path))
-    port_plugins = PortPluginRegistry(cache_dir=runtime_root / 'weather-cache')
+    port_plugins = PortPluginRegistry(cache_dir=runtime_root / 'plugin-cache', plugin_root=plugin_root, legacy_cache_dir=runtime_root / 'weather-cache')
     app.extensions['port_plugins'] = port_plugins
 
     def write(path, value):
@@ -129,6 +130,19 @@ def create_app(data_root=None, auth_root=None):
     def get_port_plugins():
         return jsonify(port_plugins.metadata())
 
+    @app.get('/plugin-assets/<identity>/<path:name>')
+    def get_plugin_asset(identity, name):
+        package = port_plugins.loaded.get(identity)
+        if package is None or Path(name).suffix.lower() not in {'.js', '.css', '.html', '.svg', '.png', '.jpg', '.webp', '.woff2'}:
+            abort(404)
+        try:
+            path = plugin_file(package['folder'], name)
+        except ValueError:
+            abort(404)
+        response = send_from_directory(path.parent, path.name)
+        response.cache_control.no_cache = True
+        return response
+
     @app.get('/api/ports/<port_id>/plugins')
     def get_port_plugin_series(port_id):
         try:
@@ -136,7 +150,7 @@ def create_app(data_root=None, auth_root=None):
             end = datetime.fromisoformat(request.args['end'])
             if start.tzinfo is not None or end.tzinfo is not None or start >= end:
                 raise ValueError('Gueltigen UTC-Planzeitraum ohne Zeitzonenoffset angeben.')
-            plugin_ids = set(request.args.get('plugins', 'weather').split(','))
+            plugin_ids = set(request.args['plugins'].split(',')) if 'plugins' in request.args else set(port_plugins.plugins)
             with lock:
                 port = next((item for item in load('ports.json') if item['id'] == port_id), None)
             if port is None:
@@ -219,7 +233,7 @@ def create_app(data_root=None, auth_root=None):
             if port_id is not None and original is None:
                 return jsonify(error="Hafen nicht gefunden."), 404
             try:
-                candidate, updated = update_port_metadata(payload, original, ports)
+                candidate, updated = update_port_metadata(payload, original, ports, plugin_validators=port_plugins.validators())
                 services = load("services.json")
                 changed_ships, changed_services = rename_port_references(plan["ships"], services, port_id, candidate["id"]) if original else (plan["ships"], services)
                 for service in changed_services:

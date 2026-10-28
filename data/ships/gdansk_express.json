@@ -16,27 +16,27 @@
       "proformaId": "ne2-2026",
       "stops": [
         {
+          "arrival": "2026-10-26T15:45",
+          "berth": 1,
+          "departure": "2026-10-28T16:00",
           "id": "busan-rotterdam",
           "portId": "rotterdam",
-          "berth": 1,
-          "arrival": "2026-10-26T15:45",
-          "departure": "2026-10-28T16:00",
-          "transitMinutes": 0,
           "source": {
-            "provider": "maersk",
-            "portName": "Rotterdam",
-            "terminalName": "APM 2 Terminal Maasvlakte II",
             "arrivalVoyage": "636W",
-            "departureVoyage": "643E"
-          }
+            "departureVoyage": "643E",
+            "portName": "Rotterdam",
+            "provider": "maersk",
+            "terminalName": "APM 2 Terminal Maasvlakte II"
+          },
+          "transitMinutes": 0
         },
         {
           "id": "busan-hamburg",
           "portId": "hamburg",
           "berth": 2,
-          "arrival": "2026-10-30T09:00",
-          "departure": "2026-11-01T00:01",
-          "transitMinutes": 2460,
+          "arrival": "2026-10-29T19:30",
+          "departure": "2026-11-01T06:30",
+          "transitMinutes": 1650,
           "source": {
             "provider": "maersk",
             "portName": "Hamburg",
@@ -49,9 +49,9 @@
           "id": "busan-antwerp",
           "portId": "antwerp",
           "berth": 1,
-          "arrival": "2026-11-02T06:00",
-          "departure": "2026-11-04T22:00",
-          "transitMinutes": 1799,
+          "arrival": "2026-11-03T18:00",
+          "departure": "2026-11-06T05:30",
+          "transitMinutes": 3570,
           "source": {
             "provider": "maersk",
             "portName": "Antwerp",
@@ -64,9 +64,9 @@
           "id": "busan-london",
           "portId": "london",
           "berth": 1,
-          "arrival": "2026-11-05T08:00",
-          "departure": "2026-11-07T19:00",
-          "transitMinutes": 600,
+          "arrival": "2026-11-06T20:00",
+          "departure": "2026-11-09T07:00",
+          "transitMinutes": 870,
           "source": {
             "provider": "maersk",
             "portName": "London Gateway",
@@ -79,9 +79,9 @@
           "id": "busan-tangier",
           "portId": "tangier",
           "berth": 1,
-          "arrival": "2026-11-11T03:00",
-          "departure": "2026-11-12T01:00",
-          "transitMinutes": 4800,
+          "arrival": "2026-11-12T14:00",
+          "departure": "2026-11-13T12:00",
+          "transitMinutes": 4740,
           "source": {
             "provider": "maersk",
             "portName": "Port Tangier Mediterranee",
@@ -94,11 +94,11 @@
       "import": {
         "source": "maersk",
         "vesselName": "GDANSK EXPRESS",
-        "fetchedAt": "2026-10-26T18:09:17+00:00",
-        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=IF3&fromDate=2026-10-26",
+        "fetchedAt": "2026-10-28T19:23:23+00:00",
+        "sourceUrl": "https://www.maersk.com/schedules/vesselSchedules?vesselCode=IF3&fromDate=2026-10-28",
         "timeBasis": "unconfirmed",
-        "fromDate": "2026-10-26",
-        "toDate": "2026-12-26"
+        "fromDate": "2026-10-28",
+        "toDate": "2026-12-28"
       }
     }
   }

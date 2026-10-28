@@ -1,0 +1,8 @@
+[data-plugin-package=tide] .port-plugin-tide{position:absolute;display:block;max-width:none;overflow:hidden;pointer-events:none;z-index:1}
+[data-plugin-package=tide] .tide-curve{fill:none;stroke:#247bcb;stroke-width:1.75;pointer-events:stroke;vector-effect:non-scaling-stroke}
+[data-plugin-package=tide] .tide-point{fill:#247bcb;stroke:#edf3f1;stroke-width:1;pointer-events:auto}
+[data-plugin-package=tide] .port-plugin-tide a{cursor:pointer}
+[data-plugin-package=tide] .tide-link-area{fill:transparent;pointer-events:all}
+[data-plugin-package=tide] .port-plugin-tide a:focus-visible .tide-point{stroke:var(--teal);stroke-width:2}
+[data-theme=dark] [data-plugin-package=tide] .tide-curve{stroke:#70b9fa}
+[data-theme=dark] [data-plugin-package=tide] .tide-point{fill:#70b9fa;stroke:var(--raised)}

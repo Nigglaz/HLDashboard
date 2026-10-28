@@ -1,0 +1,7 @@
+id = 'tide'
+api_version = 1
+order = 20
+backend = 'backend.py'
+frontend = 'frontend.js'
+settings = 'settings.html'
+style = 'style.css'

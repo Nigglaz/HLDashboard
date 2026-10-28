@@ -305,9 +305,28 @@ function transitRow(position, port, nextPort, voyages, backgroundBands) {
   return `<div class="transit-row ${needsRotation ? 'rotation-needed' : ''}"><div class="transit-label">${nextPort ? `Transit ${position + 1}` : 'Ankunft / Liegezeit'}</div><div class="transit-track" style="width:${calendarDays() * dayWidth}px">${content}</div></div>`;
 }
 
+function updatePortColumnWidth(chart, ports) {
+  const probe = document.createElement('div');
+  probe.className = 'port-heading-content';
+  probe.style.cssText = 'position:fixed;visibility:hidden;width:max-content;max-width:none;pointer-events:none';
+  probe.setAttribute('aria-hidden', 'true');
+  probe.innerHTML = `<button class="port-label port-toggle" type="button" tabindex="-1"><span class="chevron">&#9662;</span><span class="port-name"></span></button>${!harborOverview && mode === 'planning' ? '<button class="add-port-button" type="button" tabindex="-1">+</button>' : ''}`;
+  chart.append(probe);
+  const name = probe.querySelector('.port-name');
+  let width = 128;
+  for (const port of ports) {
+    name.textContent = port.name;
+    width = Math.max(width, Math.ceil(probe.getBoundingClientRect().width) + 8);
+  }
+  probe.remove();
+  document.documentElement.style.setProperty('--label', `${width}px`);
+}
+
 function renderChart() {
   const DAYS = calendarDays();
   const chart = $('#chart');
+  const ports = routePorts();
+  updatePortColumnWidth(chart, ports);
   chart.style.width = `calc(var(--label) + ${DAYS * dayWidth}px)`;
   chart.style.setProperty('--day', `${dayWidth}px`);
   chart.classList.toggle('compare-proforma', compareProforma && !harborOverview && mode === 'planning');
@@ -326,15 +345,14 @@ function renderChart() {
   let html = `<div class="time-header"><div class="time-corner">HAFEN / LIEGEPLATZ</div><div class="time-days">${days}</div></div>`;
   const route = shipById(selected).stops;
   const selectedVoyages = visibleVoyages(working.find((ship) => ship.id === selected));
-  const ports = routePorts();
   const chartShips = mode === 'proformas' ? working.filter((item) => item.id === selected) : working;
   for (const [position, port] of ports.entries()) {
     if (position && !harborOverview) {
       html += transitRow(position - 1, ports[position - 1], port, selectedVoyages, weekendBands);
     }
     const canInsert = route.some((stop) => stop.portId === port.id);
-    const addButton = !harborOverview && mode === 'planning' ? `<button type="button" class="add-port-button" data-add-port="${port.id}" ${canInsert ? '' : 'disabled'} title="Zus\u00e4tzlichen Hafen vor diesem Aufenthalt einf\u00fcgen">+ Hafen hinzuf\u00fcgen</button>` : '';
-    html += `<div class="port-heading"><div class="port-heading-content"><button class="port-label port-toggle" data-collapse="${port.id}" aria-expanded="${!collapsed.has(port.id)}" title="Hafen ein- oder ausklappen"><span class="chevron ${collapsed.has(port.id) ? 'closed' : ''}">&#9662;</span>${escapeHtml(port.name)}</button>${addButton}</div><div class="port-plugin-lanes" data-port-plugins="${escapeHtml(port.id)}"></div></div>`;
+    const addButton = !harborOverview && mode === 'planning' ? `<button type="button" class="add-port-button" data-add-port="${port.id}" ${canInsert ? '' : 'disabled'} title="Zus\u00e4tzlichen Hafen vor diesem Aufenthalt einf\u00fcgen" aria-label="Hafen hinzuf\u00fcgen"><i data-lucide="plus" aria-hidden="true"></i><span class="icon-fallback" aria-hidden="true">+</span></button>` : '';
+    html += `<div class="port-heading"><div class="port-heading-content"><button class="port-label port-toggle" data-collapse="${port.id}" aria-expanded="${!collapsed.has(port.id)}" title="Hafen ein- oder ausklappen"><span class="chevron ${collapsed.has(port.id) ? 'closed' : ''}">&#9662;</span><span class="port-name" title="${escapeHtml(port.name)}">${escapeHtml(port.name)}</span></button>${addButton}</div><div class="port-plugin-lanes" data-port-plugins="${escapeHtml(port.id)}"></div></div>`;
     if (collapsed.has(port.id)) continue;
     for (let berth = 1; berth <= port.berths; berth++) {
       if (hiddenBerths.has(`${port.id}:${berth}`)) continue;
@@ -1155,6 +1173,9 @@ async function initialize() {
   } catch (error) { $('#chart').innerHTML = `<div class="empty-error">${escapeHtml(error.message)} Bitte die Seite neu laden.</div>`; notify(error.message, true); }
 }
 initialize();
+document.fonts.ready.then(() => {
+  if (saved && working?.some((ship) => ship.id === selected) && ['planning', 'proformas'].includes(mode)) renderChart();
+});
 
 async function refreshData() {
   if (!saved || saving || refreshingData || activeDrag || !$('#inspector').hidden || $('#add-port-dialog').open) return;

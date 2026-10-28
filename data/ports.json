@@ -8,18 +8,64 @@
       ]
     },
     "name": "Rotterdam MV2",
+    "pluginLocations": [
+      {
+        "coordinates": {
+          "latitude": 51.952,
+          "longitude": 4.028
+        },
+        "id": "terminal",
+        "name": "RTM",
+        "plugin": "weather",
+        "plugins": {
+          "tide": {
+            "enabled": false
+          },
+          "weather": {
+            "enabled": true,
+            "warningWindKnots": 25
+          }
+        },
+        "url": "https://www.windy.com/?52.014,3.759,9"
+      },
+      {
+        "coordinates": {
+          "latitude": 51.952,
+          "longitude": 4.028
+        },
+        "id": "location-9dc18e694ced",
+        "name": "RTM",
+        "plugin": "tide",
+        "plugins": {
+          "tide": {
+            "enabled": false,
+            "stationId": "hamburg_st-pauli"
+          },
+          "weather": {
+            "enabled": false,
+            "warningWindKnots": 25
+          }
+        },
+        "url": "https://www.windy.com/?52.014,3.759,9"
+      }
+    ],
     "coordinates": {
       "latitude": 51.952,
       "longitude": 4.028
     },
     "plugins": {
       "weather": {
-        "enabled": true,
-        "warningWindKnots": 25
+        "enabled": true
       }
     },
     "berths": 2,
-    "distancesNm": {}
+    "distancesNm": {
+      "antwerp": 100,
+      "london": 100,
+      "tangier": 100,
+      "bremerhaven": 100,
+      "algeciras": 100
+    }
   },
   {
     "id": "hamburg",
@@ -30,38 +76,121 @@
       ]
     },
     "name": "Hamburg Eurogate",
+    "pluginLocations": [
+      {
+        "coordinates": {
+          "latitude": 53.5264,
+          "longitude": 9.9175
+        },
+        "id": "terminal",
+        "name": "Hamburg",
+        "plugin": "weather",
+        "plugins": {
+          "tide": {
+            "enabled": false
+          },
+          "weather": {
+            "enabled": true,
+            "warningWindKnots": 20
+          }
+        },
+        "url": "https://www.windy.com/?53.692,9.311,10"
+      },
+      {
+        "coordinates": {
+          "latitude": 53.873,
+          "longitude": 8.709
+        },
+        "id": "cuxhaven",
+        "name": "Cuxhaven",
+        "plugin": "weather",
+        "plugins": {
+          "tide": {
+            "enabled": false
+          },
+          "weather": {
+            "enabled": false,
+            "warningWindKnots": 20
+          }
+        },
+        "url": "https://www.windy.com/?54.044,8.174,10"
+      },
+      {
+        "coordinates": {
+          "latitude": 53.5264,
+          "longitude": 9.9175
+        },
+        "id": "location-17d69d9cb3d2",
+        "name": "Hamburg",
+        "plugin": "tide",
+        "plugins": {
+          "tide": {
+            "enabled": true,
+            "stationId": "hamburg_st-pauli"
+          },
+          "weather": {
+            "enabled": false,
+            "warningWindKnots": 20
+          }
+        },
+        "url": "https://www.windy.com/?53.692,9.311,10"
+      }
+    ],
     "coordinates": {
       "latitude": 53.5264,
       "longitude": 9.9175
     },
     "plugins": {
       "weather": {
-        "enabled": true,
-        "warningWindKnots": 20
+        "enabled": true
       }
     },
     "berths": 6,
     "distancesNm": {
-      "rotterdam": 100
+      "rotterdam": 100,
+      "antwerp": 100,
+      "london": 100,
+      "tangier": 100,
+      "bremerhaven": 100,
+      "algeciras": 100
     }
   },
   {
     "id": "antwerp",
     "name": "Antwerpen",
+    "pluginLocations": [
+      {
+        "coordinates": {
+          "latitude": 51.303,
+          "longitude": 4.289
+        },
+        "id": "terminal",
+        "name": "Antwerpen",
+        "plugins": {
+          "tide": {
+            "enabled": false
+          },
+          "weather": {
+            "enabled": true,
+            "warningWindKnots": 25
+          }
+        },
+        "url": "https://www.windy.com/?51.495,3.253,9"
+      }
+    ],
     "coordinates": {
       "latitude": 51.303,
       "longitude": 4.289
     },
     "plugins": {
       "weather": {
-        "enabled": true,
-        "warningWindKnots": 25
+        "enabled": true
       }
     },
     "berths": 1,
     "distancesNm": {
-      "rotterdam": 100,
-      "hamburg": 100
+      "bremerhaven": 100,
+      "algeciras": 100
     },
     "aliases": {
       "maersk": [
@@ -78,42 +207,81 @@
       ]
     },
     "name": "London",
+    "pluginLocations": [
+      {
+        "coordinates": {
+          "latitude": 51.508,
+          "longitude": 0.495
+        },
+        "id": "terminal",
+        "name": "London Gateway",
+        "plugins": {
+          "tide": {
+            "enabled": true,
+            "url": ""
+          },
+          "weather": {
+            "enabled": true,
+            "warningWindKnots": 20
+          }
+        },
+        "url": "https://www.windy.com/?51.382,0.966,9"
+      }
+    ],
     "coordinates": {
       "latitude": 51.508,
       "longitude": 0.495
     },
     "plugins": {
       "weather": {
-        "enabled": true,
-        "warningWindKnots": 20
+        "enabled": true
       }
     },
     "berths": 4,
     "distancesNm": {
-      "rotterdam": 100,
-      "hamburg": 100,
-      "antwerp": 100
+      "antwerp": 100,
+      "tangier": 100,
+      "bremerhaven": 100,
+      "algeciras": 100
     }
   },
   {
     "id": "tangier",
     "name": "Tangier TC3",
+    "pluginLocations": [
+      {
+        "coordinates": {
+          "latitude": 35.889,
+          "longitude": -5.483
+        },
+        "id": "terminal",
+        "name": "Tangier TC3",
+        "plugins": {
+          "tide": {
+            "enabled": false
+          },
+          "weather": {
+            "enabled": true,
+            "warningWindKnots": 20
+          }
+        },
+        "url": "https://www.windy.com/?35.882,-5.442,9"
+      }
+    ],
     "coordinates": {
       "latitude": 35.889,
       "longitude": -5.483
     },
     "plugins": {
       "weather": {
-        "enabled": true,
-        "warningWindKnots": 20
+        "enabled": true
       }
     },
     "berths": 2,
     "distancesNm": {
-      "rotterdam": 100,
-      "hamburg": 100,
       "antwerp": 100,
-      "london": 100
+      "bremerhaven": 100,
+      "algeciras": 100
     },
     "aliases": {
       "maersk": [
@@ -130,24 +298,37 @@
       ]
     },
     "name": "Bremerhaven",
+    "pluginLocations": [
+      {
+        "id": "terminal",
+        "name": "Bremerhaven",
+        "coordinates": {
+          "latitude": 53.591,
+          "longitude": 8.549
+        },
+        "url": "https://www.windy.com/?53.591,8.549,10",
+        "plugins": {
+          "weather": {
+            "enabled": true,
+            "warningWindKnots": 20
+          },
+          "tide": {
+            "enabled": false
+          }
+        }
+      }
+    ],
     "coordinates": {
       "latitude": 53.591,
       "longitude": 8.549
     },
     "plugins": {
       "weather": {
-        "enabled": true,
-        "warningWindKnots": 20
+        "enabled": true
       }
     },
     "berths": 2,
-    "distancesNm": {
-      "rotterdam": 100,
-      "hamburg": 100,
-      "antwerp": 100,
-      "london": 100,
-      "tangier": 100
-    }
+    "distancesNm": {}
   },
   {
     "id": "algeciras",
@@ -158,23 +339,37 @@
       ]
     },
     "name": "Algeciras",
+    "pluginLocations": [
+      {
+        "id": "terminal",
+        "name": "Algeciras",
+        "coordinates": {
+          "latitude": 36.131,
+          "longitude": -5.429
+        },
+        "url": "https://www.windy.com/?36.131,-5.429,10",
+        "plugins": {
+          "weather": {
+            "enabled": true,
+            "warningWindKnots": 20
+          },
+          "tide": {
+            "enabled": false
+          }
+        }
+      }
+    ],
     "coordinates": {
       "latitude": 36.131,
       "longitude": -5.429
     },
     "plugins": {
       "weather": {
-        "enabled": true,
-        "warningWindKnots": 20
+        "enabled": true
       }
     },
     "berths": 2,
     "distancesNm": {
-      "rotterdam": 100,
-      "hamburg": 100,
-      "antwerp": 100,
-      "london": 100,
-      "tangier": 100,
       "bremerhaven": 100
     }
   }

@@ -1,0 +1,22 @@
+<section aria-label="Wind">
+	<h3>Wind</h3>
+	<label class="checkbox-label"><input data-global-enabled type="checkbox"> Wind-Plugin aktiv</label>
+	<div data-locations class="plugin-location-list"></div>
+	<button class="button" type="button" data-add><i data-lucide="plus" aria-hidden="true"></i> Wind-Standort hinzuf&uuml;gen</button>
+	<template data-location-template>
+		<fieldset class="plugin-location-editor">
+			<legend>Wind-Standort</legend>
+			<div class="master-fields">
+				<label>Name<input data-field="name" maxlength="120" required></label>
+				<label>Website-Link<input data-field="url" type="url" maxlength="2048" placeholder="https://..."></label>
+				<label>Breitengrad<input data-field="latitude" type="number" min="-90" max="90" step="any" required></label>
+				<label>L&auml;ngengrad<input data-field="longitude" type="number" min="-180" max="180" step="any" required></label>
+				<label>Windwarnung ab (kn)<input data-wind-warning type="number" min="0.1" step="0.1"></label>
+			</div>
+			<div class="plugin-location-selection">
+				<label class="checkbox-label"><input data-enabled type="checkbox"> Wind anzeigen</label>
+				<button class="button icon" type="button" data-remove title="Wind-Standort entfernen" aria-label="Wind-Standort entfernen"><i data-lucide="trash-2" aria-hidden="true"></i></button>
+			</div>
+		</fieldset>
+	</template>
+</section>

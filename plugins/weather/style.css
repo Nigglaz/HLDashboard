@@ -1,0 +1,20 @@
+[data-plugin-package=weather] .port-plugin-value{position:absolute;width:32px;height:34px;display:flex;align-items:center;justify-content:center;flex-direction:column;color:#345a52;background:#edf3f1;border-radius:4px;pointer-events:auto;font-size:11px;line-height:1;cursor:help;white-space:nowrap;z-index:1}
+[data-plugin-package=weather] .port-plugin-value strong{font-size:10px;font-weight:650;line-height:1;z-index:1}
+[data-plugin-package=weather] .port-plugin-value small{font-size:8px;margin-top:3px}
+[data-plugin-package=weather] .port-plugin-directional{background:transparent;border:0;border-radius:0}
+[data-plugin-package=weather] .port-plugin-pointer{position:absolute;inset:0;transform-origin:center;pointer-events:none}
+[data-plugin-package=weather] .port-plugin-pointer svg{position:absolute;width:12px;height:12px;left:10px;top:-3px;background:transparent;stroke-width:2.5}
+[data-plugin-package=weather] .port-plugin-value:is(.plugin-warning,.plugin-danger){background:transparent;color:#a52e28}
+[data-plugin-package=weather] .port-plugin-value:is(.plugin-warning,.plugin-danger) svg{background:transparent}
+[data-theme=dark] [data-plugin-package=weather] .port-plugin-value{background:var(--raised);color:#bae2d6;border-color:#6b9587}
+[data-theme=dark] [data-plugin-package=weather] .port-plugin-directional{background:transparent}
+[data-theme=dark] [data-plugin-package=weather] .port-plugin-pointer svg{background:transparent}
+[data-theme=dark] [data-plugin-package=weather] .port-plugin-value:is(.plugin-warning,.plugin-danger){background:transparent;color:#ffd2cd}
+[data-theme=dark] [data-plugin-package=weather] .port-plugin-value:is(.plugin-warning,.plugin-danger) svg{background:transparent}
+[data-plugin-package=weather] .port-plugin-period{position:absolute;height:38px;background:#f5c2bc;border-top:1px solid #c97870;border-bottom:1px solid #c97870;pointer-events:auto;z-index:0;cursor:help}
+[data-plugin-package=weather] .port-plugin-period.plugin-danger{background:#eeaaa4;border-color:#b44a43}
+[data-theme=dark] [data-plugin-package=weather] .port-plugin-period{background:#593034;border-color:#ad666b}
+[data-theme=dark] [data-plugin-package=weather] .port-plugin-period.plugin-danger{background:#732e37;border-color:#d58289}
+[data-plugin-package=weather] .port-plugin-value{text-decoration:none}
+[data-plugin-package=weather] a.port-plugin-value{cursor:pointer}
+[data-plugin-package=weather] .port-plugin-value:focus-visible{outline:2px solid var(--teal);outline-offset:1px}

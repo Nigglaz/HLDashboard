@@ -37,7 +37,7 @@ def update_ship_metadata(payload, original, ships):
     return result
 
 
-def update_port_metadata(payload, original, ports):
+def update_port_metadata(payload, original, ports, plugin_validators=None):
     name = str(payload.get("name", "")).strip()
     berths = payload.get("berths")
     old_identity = original["id"] if original else None
@@ -62,12 +62,14 @@ def update_port_metadata(payload, original, ports):
     if not isinstance(distances, dict) or not set(distances) <= known or any(type(distance) not in (float, int) or not isfinite(distance) or distance < 0 for distance in distances.values()):
         raise ValueError("Entfernungen muessen nichtnegative Zahlen zu vorhandenen Haefen sein.")
     result = deepcopy(original) if original else {"id": identity}
-    coordinates, plugins = validate_port_extensions(payload, original)
+    coordinates, plugins = validate_port_extensions(payload, original, validators=plugin_validators)
     result.update(id=identity, name=name, berths=berths, aliases={source: list(dict.fromkeys(value.strip() for value in values)) for source, values in aliases.items()}, distancesNm=distances)
     if coordinates is not None or 'coordinates' in payload:
         result['coordinates'] = coordinates
     if plugins or 'plugins' in payload:
         result['plugins'] = plugins
+    if 'pluginLocations' in payload:
+        result['pluginLocations'] = deepcopy(payload['pluginLocations'])
     updated = [deepcopy(port) for port in ports if port["id"] != old_identity]
     for port in updated:
         if old_identity:

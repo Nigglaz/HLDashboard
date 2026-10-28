@@ -51,7 +51,7 @@ def legacy_test_ships():
     return plan["ships"]
 
 
-def create_test_app(data_root):
+def create_test_app(data_root, plugin_root=None):
     root = Path(data_root)
     if not (root / "ports.json").exists():
         plan = load_test_plan()
@@ -63,6 +63,6 @@ def create_test_app(data_root):
     auth_root = root / "auth"
     if not (auth_root / "users.json").exists():
         write_users(auth_root / "users.json", [{"email": TEST_EMAIL, "passwordHash": TEST_HASH}])
-    app = create_app(data_root, auth_root=auth_root)
+    app = create_app(data_root, auth_root=auth_root, plugin_root=plugin_root)
     app.test_client_class = AuthenticatedClient
     return app

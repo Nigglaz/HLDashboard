@@ -1,0 +1,7 @@
+id = 'weather'
+api_version = 1
+order = 10
+backend = 'backend.py'
+frontend = 'frontend.js'
+settings = 'settings.html'
+style = 'style.css'
